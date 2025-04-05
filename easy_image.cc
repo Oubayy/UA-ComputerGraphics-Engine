@@ -209,59 +209,62 @@ img::Color const& img::EasyImage::operator()(unsigned int x, unsigned int y) con
 void img::EasyImage::draw_line(unsigned int x0, unsigned int y0, unsigned int x1, unsigned int y1, Color color)
 {
 	if (x0 >= this->width || y0 >= this->height || x1 >= this->width || y1 > this->height) {
-        std::stringstream ss;
-        ss << "Drawing line from (" << x0 << "," << y0 << ") to (" << x1 << "," << y1 << ") in image of width "
-        << this->width << " and height " << this->height;
-        throw std::runtime_error(ss.str());
-    }
+		std::stringstream ss;
+		ss << "Drawing line from (" << x0 << "," << y0 << ") to (" << x1 << "," << y1 << ") in image of width "
+			<< this->width << " and height " << this->height;
+		throw std::runtime_error(ss.str());
+	}
+	if ((x0 > x1) || ((x0 == x1) &&  (y0 > y1)))
+	{
+		// Ensure p0->p1 goes from left to right (or from bottom to top if perfectly vertical)
+		std::swap(x0, x1);
+		std::swap(y0, y1);
+	}
+
 	if (x0 == x1)
 	{
-		//special case for x0 == x1
-		for (unsigned int i = std::min(y0, y1); i <= std::max(y0, y1); i++)
+		// Special case for vertical line
+		for (int px = 0; px <= (y1-y0); px++)
 		{
-			(*this)(x0, i) = color;
+			(*this)(x0, y0 + px) = color;
 		}
 	}
 	else if (y0 == y1)
 	{
-		//special case for y0 == y1
-		for (unsigned int i = std::min(x0, x1); i <= std::max(x0, x1); i++)
+		// Special case for horizontal line
+		for (int px = 0; px <= (x1-x0); px++)
 		{
-			(*this)(i, y0) = color;
+			(*this)(x0 + px, y0) = color;
 		}
 	}
 	else
 	{
-		if (x0 > x1)
-		{
-			//flip points if x1>x0: we want x0 to have the lowest value
-			std::swap(x0, x1);
-			std::swap(y0, y1);
-		}
-		double m = ((double) y1 - (double) y0) / ((double) x1 - (double) x0);
+		// Diagonal line, 3 cases depending on slope
+		double m = ((double)y1 - (double)y0) / ((double)x1 - (double)x0);
 		if (-1.0 <= m && m <= 1.0)
 		{
-			for (unsigned int i = 0; i <= (x1 - x0); i++)
+			for (int px = 0; px <= x1 - x0; px++)
 			{
-				(*this)(x0 + i, (unsigned int) round(y0 + m * i)) = color;
+				(*this)(x0 + px, (unsigned int)round(y0 + m * px)) = color;
 			}
 		}
 		else if (m > 1.0)
 		{
-			for (unsigned int i = 0; i <= (y1 - y0); i++)
+			for (int px = 0; px <= y1 - y0; px++)
 			{
-				(*this)((unsigned int) round(x0 + (i / m)), y0 + i) = color;
+				(*this)((unsigned int)round(x0 + (px / m)), y0 + px) = color;
 			}
 		}
 		else if (m < -1.0)
 		{
-			for (unsigned int i = 0; i <= (y0 - y1); i++)
+			for (int px = 0; px <= y0 - y1; px++)
 			{
-				(*this)((unsigned int) round(x0 - (i / m)), y0 - i) = color;
+				(*this)((unsigned int)round(x0 - (px / m)), y0 - px) = color;
 			}
 		}
 	}
 }
+
 std::ostream& img::operator<<(std::ostream& out, EasyImage const& image)
 {
 
