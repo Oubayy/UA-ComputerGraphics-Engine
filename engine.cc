@@ -1,5 +1,6 @@
 #include "easy_image.h"
 #include "ini_configuration.h"
+#include "intro_exercises.h"
 
 #include <fstream>
 #include <iostream>
@@ -7,11 +8,24 @@
 #include <string>
 
 
-
+/**
+ * Deze functie genereert een image op basis van de ini::Configuration.
+ */
 img::EasyImage generate_image(const ini::Configuration &configuration)
 {
-	return img::EasyImage();
+        std::string type = configuration["General"]["type"].as_string_or_die();
+
+        if (type == "IntroColorRectangle")
+                return intro::generateColorRectangle(configuration);
+        if (type == "IntroBlocks")
+                return intro::generateBlocks(configuration);
+        if (type == "IntroLines")
+                return intro::generateLines(configuration);
+
+        // Als type niet herkend, geef een lege afbeelding terug.
+        return img::EasyImage();
 }
+
 
 int main(int argc, char const* argv[])
 {
