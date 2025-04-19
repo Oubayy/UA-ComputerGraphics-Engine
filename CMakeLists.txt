@@ -26,6 +26,11 @@ set(engine_sources
 	Figure.cpp
 	stb_image.h
 	ImageComparator.cpp
+	Transformations.cpp
+	Projection.cpp
+	lijntekeningen3D.cpp
+	lijntekeningen3D.h
+	vector3d.cc
 )
 
 ############################################################

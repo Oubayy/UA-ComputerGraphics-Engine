@@ -1,5 +1,7 @@
 #include "lineDrawer.h"
 #include "Figure.h"
+#include "Transformations.h"
+#include "Projection.h"
 #include "ini_configuration.h"
 #include "Line2D.h"
 #include <cmath>
@@ -363,7 +365,7 @@ Lines2D drawLSystem(const LParser::LSystem2D &l_system, const Color &lineColor) 
     }
     */
 
-/*
+
 // Generate 3D figures based on the configuration
 Figures3D generateFigures(const ini::Configuration &configuration) {
     Figures3D figures;
@@ -459,4 +461,3 @@ Figures3D generateFigures(const ini::Configuration &configuration) {
 }
 
 //figure.color = Color(colorData[0], colorData[1], colorData[2]);
-*/

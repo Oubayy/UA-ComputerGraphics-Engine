@@ -3,6 +3,7 @@
 #include "intro_exercises.h"
 #include "l_systems.h"
 #include "ImageComparator.h"
+#include "lijntekeningen3D.h"
 
 #include <fstream>
 #include <iostream>
@@ -25,6 +26,9 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
                 return intro::generateLines(configuration);
         if (type == "2DLSystem") {
                 return l_systems::generateLSystem(configuration);
+        }
+        if (type == "Wireframe") {
+                return lijntekeningen3D::generate3DImage(configuration);
         }
 
         // Als type niet herkend, geef een lege afbeelding terug.

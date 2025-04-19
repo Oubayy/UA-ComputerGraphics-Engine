@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <list>
-//#include "../vector3d.h"
+#include "vector3d.h"
 #include "l_parser.h"
 #include "Line2D.h"
 #include <cmath>
@@ -17,7 +17,7 @@ public:
 // Figure class
 class Figure {
 public:
-    //std::vector<Vector3D> points;
+    std::vector<Vector3D> points;
     std::vector<Face> faces;
     Color color;
 
