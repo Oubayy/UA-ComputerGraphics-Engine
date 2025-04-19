@@ -1,6 +1,8 @@
 #include "easy_image.h"
 #include "ini_configuration.h"
 #include "intro_exercises.h"
+#include "l_systems.h"
+#include "ImageComparator.h"
 
 #include <fstream>
 #include <iostream>
@@ -21,6 +23,9 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
                 return intro::generateBlocks(configuration);
         if (type == "IntroLines")
                 return intro::generateLines(configuration);
+        if (type == "2DLSystem") {
+                return l_systems::generateLSystem(configuration);
+        }
 
         // Als type niet herkend, geef een lege afbeelding terug.
         return img::EasyImage();
@@ -102,5 +107,9 @@ int main(int argc, char const* argv[])
                 std::cerr << "Error: insufficient memory" << std::endl;
                 retVal = 100;
         }
+
+        ImageComparator image_comparator("/home/oubayy/CLionProjects/UA-ComputerGraphics-Engine/ini");
+        image_comparator.compare();
+
         return retVal;
 }
