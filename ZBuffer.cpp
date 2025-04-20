@@ -77,7 +77,7 @@ void triangulate(Figures3D &figs) {
     }
 }
 
-/*
+
 Triangles ZBuffer::doProjectTriangle(const Figures3D &figures, const double &d) {
     Triangles triangles;
 
@@ -169,7 +169,8 @@ void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle
         for (int x = min_x; x <= max_x; x++) {
             double z = 1.0001 * middel_punt.z + (x - middel_punt.x) * dzdx + (y - middel_punt.y) * dzdy;
 
-            if (z <= this->at(x)[y]) {
+            if (z > this->at(x)[y]) {
+            //if (z <= this->at(x)[y]) {
                 image(x, y) = {
                     static_cast<uint8_t>(triangle.color.red * 255),
                     static_cast<uint8_t>(triangle.color.green * 255),
@@ -180,7 +181,7 @@ void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle
         }
     }
 }
-*/
+
 
 // Draws a 2D line segment with Z-buffering.
 // Assumes line coordinates are already transformed and clipped.

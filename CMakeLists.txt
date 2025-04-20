@@ -32,6 +32,7 @@ set(engine_sources
 		vector3d.cc
 		draw_zbuffered_wireframes.cpp
 		ZBuffer.cpp
+		draw_triangulated_wireframes.cpp
 )
 
 ############################################################

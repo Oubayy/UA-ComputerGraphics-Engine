@@ -5,6 +5,7 @@
 #include "ImageComparator.h"
 #include "lijntekeningen3D.h"
 #include "draw_zbuffered_wireframes.h"
+#include "draw_triangulated_wireframes.h"
 
 #include <fstream>
 #include <iostream>
@@ -33,6 +34,9 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         }
         if (type == "ZBufferedWireframe") {
                 return draw_zbuffered_wireframes(configuration);
+        }
+        if (type == "ZBuffering") {
+                return draw_triangulated_wireframes(configuration);
         }
 
 

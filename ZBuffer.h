@@ -32,8 +32,8 @@ public:
      */
     void draw_zbuf_line(img::EasyImage &image, Line2D line);
 
-    // static Triangles doProjectTriangle(const Figures3D &figures, const double &d);
-    // void draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d);
+    static Triangles doProjectTriangle(const Figures3D &figures, const double &d);
+    void draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d);
 };
 
 
