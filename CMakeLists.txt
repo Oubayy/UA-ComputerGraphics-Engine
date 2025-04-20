@@ -15,22 +15,23 @@ set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${OWN_GXX_FLAGS}")
 # List all sources
 ############################################################
 set(engine_sources
-	easy_image.cc
-	engine.cc
-	ini_configuration.cc
-	intro_exercises.cpp
-	l_systems.cpp
-	l_parser.cc
-	Line2D.h
-	lineDrawer.cpp
-	Figure.cpp
-	stb_image.h
-	ImageComparator.cpp
-	Transformations.cpp
-	Projection.cpp
-	lijntekeningen3D.cpp
-	lijntekeningen3D.h
-	vector3d.cc
+		easy_image.cc
+		engine.cc
+		ini_configuration.cc
+		intro_exercises.cpp
+		l_systems.cpp
+		l_parser.cc
+		Line2D.h
+		lineDrawer.cpp
+		Figure.cpp
+		stb_image.h
+		ImageComparator.cpp
+		Transformations.cpp
+		Projection.cpp
+		lijntekeningen3D.cpp
+		vector3d.cc
+		draw_zbuffered_wireframes.cpp
+		ZBuffer.cpp
 )
 
 ############################################################

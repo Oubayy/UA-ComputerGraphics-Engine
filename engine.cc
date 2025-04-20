@@ -4,6 +4,7 @@
 #include "l_systems.h"
 #include "ImageComparator.h"
 #include "lijntekeningen3D.h"
+#include "draw_zbuffered_wireframes.h"
 
 #include <fstream>
 #include <iostream>
@@ -30,6 +31,10 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         if (type == "Wireframe") {
                 return lijntekeningen3D::generate3DImage(configuration);
         }
+        if (type == "ZBufferedWireframe") {
+                return draw_zbuffered_wireframes(configuration);
+        }
+
 
         // Als type niet herkend, geef een lege afbeelding terug.
         return img::EasyImage();
