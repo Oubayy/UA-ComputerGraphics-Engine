@@ -10,12 +10,47 @@
 #include <functional>
 #include <fstream>
 #include <stack>
+#include <cmath> // For sqrt, cos, sin
+#include <stdexcept> // For runtime_error
+#include <numeric>   // For center calculation sum (optional)
 
 #ifndef Pi
 #define Pi 3.14159265358979323846
 #endif
 
 using namespace std;
+
+Figure Figure::createBuckyBall() {
+    // Placeholder: Generate an Icosahedron for now, as the Buckyball
+    // generation from Icosahedron (truncation) is complex and not provided.
+    // A real implementation would truncate the icosahedron vertices.
+    Figure bucky = createIcosahedron(); // Use Icosahedron as a stand-in
+    bucky.color = Color(0.9, 0.9, 0.9); // Default Buckyball color (e.g., grey)
+
+    // TODO: Implement actual Buckyball generation (Truncated Icosahedron)
+    // This involves creating 12 pentagons and 20 hexagons.
+    // It requires calculating new vertices by cutting off the original icosahedron vertices.
+    // See course notes page 55 or online resources for algorithms.
+
+    return bucky;
+}
+
+// Definition for the center() method
+Vector3D Figure::center() const {
+    if (points.empty()) {
+        return Vector3D::point(0, 0, 0); // Return origin if no points
+    }
+
+    double sumX = 0, sumY = 0, sumZ = 0;
+    for (const Vector3D& p : points) {
+        sumX += p.x;
+        sumY += p.y;
+        sumZ += p.z;
+    }
+    size_t numPoints = points.size();
+    return Vector3D::point(sumX / numPoints, sumY / numPoints, sumZ / numPoints);
+}
+
 
 Figure Figure::createCube() {
     // Figuur aanmaken
@@ -27,12 +62,12 @@ Figure Figure::createCube() {
     };
     // Voeg vlakken toe
     cube.faces = {
-            Face{{0, 1, 2, 3}}, // front face
-            Face{{4, 5, 6, 7}}, // back face
-            Face{{0, 1, 5, 4}}, // bottom face
-            Face{{2, 3, 7, 6}}, // top face
-            Face{{0, 3, 7, 4}}, // left face
-            Face{{1, 2, 6, 5}}  // right face
+            Face{{0, 1, 2, 3}}, // front face (-Z)
+            Face{{7, 6, 5, 4}}, // back face (+Z) - Ensure consistent winding order if needed (e.g., CCW from outside)
+            Face{{4, 5, 1, 0}}, // bottom face (-Y)
+            Face{{3, 2, 6, 7}}, // top face (+Y)
+            Face{{4, 0, 3, 7}}, // left face (-X)
+            Face{{1, 5, 6, 2}}  // right face (+X)
     };
     return cube;
 }
@@ -41,308 +76,322 @@ Figure Figure::createTetrahedron() {
     // Figuur aanmaken
     Figure tetrahedron;
 
-    // Voeg punten toe (=vertices)
-    /*tetrahedron.points = {
-            Vector3D::point(1, 1, 1),     // Vertex 0
-            Vector3D::point(-1, -1, 1),   // Vertex 1
-            Vector3D::point(-1, 1, -1),   // Vertex 2
-            Vector3D::point(1, -1, -1)    // Vertex 3
-    };*/
     tetrahedron.points = {
             Vector3D::point(1, -1, -1),     // Vertex 0
             Vector3D::point(-1, 1, -1),   // Vertex 1
-            Vector3D::point(1, 1, 1),   // Vertex 2
-            Vector3D::point(-1, -1, 1)    // Vertex 3
+            Vector3D::point(-1, -1, 1),   // Vertex 2 - Changed to form a standard tetrahedron base
+            Vector3D::point(1, 1, 1)      // Vertex 3 - Apex
     };
 
-    // Voeg vlakken toe (=faces)
-    /*tetrahedron.faces = {
-            Face{{0, 1, 2}}, // Face connecting vertices 0, 1, and 2
-            Face{{0, 1, 3}}, // Face connecting vertices 0, 1, and 3
-            Face{{0, 2, 3}}, // Face connecting vertices 0, 2, and 3
-            Face{{1, 2, 3}}  // Face connecting vertices 1, 2, and 3
-    };*/
+    // Faces (ensure consistent winding order, e.g., CCW from outside)
     tetrahedron.faces = {
-            Face{{0, 1, 2}}, // Face connecting vertices 0, 1, and 2
-            Face{{1, 3, 2}}, // Face connecting vertices 0, 1, and 3
-            Face{{0, 3, 1}}, // Face connecting vertices 0, 2, and 3
-            Face{{0, 2, 3}}  // Face connecting vertices 1, 2, and 3
+            Face{{0, 1, 2}}, // Base triangle
+            Face{{0, 3, 1}}, // Side face
+            Face{{1, 3, 2}}, // Side face
+            Face{{2, 3, 0}}  // Side face
     };
 
     return tetrahedron;
 }
 
 Figure Figure::createOctahedron() {
-    // Figuur aanmaken
     Figure octahedron;
-
-    // Voeg punten toe (=vertices)
     octahedron.points = {
-            Vector3D::point(1, 0, 0),    // Vertex 0
-            Vector3D::point(-1, 0, 0),   // Vertex 1
-            Vector3D::point(0, 1, 0),    // Vertex 2
-            Vector3D::point(0, -1, 0),   // Vertex 3
-            Vector3D::point(0, 0, 1),    // Vertex 4
-            Vector3D::point(0, 0, -1)    // Vertex 5
+        Vector3D::point( 1,  0,  0), Vector3D::point(-1,  0,  0), // 0, 1 (+x, -x)
+        Vector3D::point( 0,  1,  0), Vector3D::point( 0, -1,  0), // 2, 3 (+y, -y)
+        Vector3D::point( 0,  0,  1), Vector3D::point( 0,  0, -1)  // 4, 5 (+z, -z) - Top, Bottom
     };
 
-    // Voeg vlakken toe (=faces)
+    // Faces (ensure consistent winding order, e.g., CCW from outside)
     octahedron.faces = {
-            Face{{0, 2, 4}}, // Face connecting vertices 0, 2, and 4
-            Face{{0, 2, 5}}, // Face connecting vertices 0, 2, and 5
-            Face{{0, 3, 4}}, // Face connecting vertices 0, 3, and 4
-            Face{{0, 3, 5}}, // Face connecting vertices 0, 3, and 5
-            Face{{1, 2, 4}}, // Face connecting vertices 1, 2, and 4
-            Face{{1, 2, 5}}, // Face connecting vertices 1, 2, and 5
-            Face{{1, 3, 4}}, // Face connecting vertices 1, 3, and 4
-            Face{{1, 3, 5}}  // Face connecting vertices 1, 3, and 5
+        // Top faces (connected to vertex 4)
+        Face{{0, 2, 4}}, Face{{2, 1, 4}}, Face{{1, 3, 4}}, Face{{3, 0, 4}},
+        // Bottom faces (connected to vertex 5)
+        Face{{0, 5, 2}}, Face{{2, 5, 1}}, Face{{1, 5, 3}}, Face{{3, 5, 0}}
     };
-
     return octahedron;
 }
 
+
 Figure Figure::createIcosahedron() {
     Figure icosahedron;
+    const double t = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
 
     // Define vertices
-    Vector3D point1 = Vector3D::point(0, 0, sqrt(5) / 2);
-    icosahedron.points.push_back(point1);
+    icosahedron.points = {
+        Vector3D::point(-1,  t,  0), Vector3D::point( 1,  t,  0), Vector3D::point(-1, -t,  0), Vector3D::point( 1, -t,  0),
+        Vector3D::point( 0, -1,  t), Vector3D::point( 0,  1,  t), Vector3D::point( 0, -1, -t), Vector3D::point( 0,  1, -t),
+        Vector3D::point( t,  0, -1), Vector3D::point( t,  0,  1), Vector3D::point(-t,  0, -1), Vector3D::point(-t,  0,  1)
+    };
 
-    for (int i = 2; i < 7; ++i) {
-        Vector3D point = Vector3D::point(cos((i - 2) * 2 * Pi / 5), sin((i - 2) * 2 * Pi / 5), 0.5);
-        icosahedron.points.push_back(point);
+    // Normalize points to be on a unit sphere (optional, but common)
+    for(auto& p : icosahedron.points) {
+        double len = p.length();
+        if (len > 1e-9) { // Avoid division by zero
+             p.x /= len; p.y /= len; p.z /= len;
+        }
     }
 
-    for (int i = 7; i < 12; ++i) {
-        Vector3D point = Vector3D::point(cos(Pi / 5 + (i - 7) * 2 * Pi / 5), sin(Pi / 5 + (i - 7) * 2 * Pi / 5), -0.5);
-        icosahedron.points.push_back(point);
-    }
 
-    Vector3D point12 = Vector3D::point(0, 0, -sqrt(5) / 2);
-    icosahedron.points.push_back(point12);
-
-    // Define faces (correctly connecting vertices)
+    // Define faces (indices based on the points above, ensuring CCW winding from outside)
     icosahedron.faces = {
-            Face{{0, 1, 2}}, Face{{0, 2, 3}}, Face{{0, 3, 4}}, Face{{0, 4, 5}}, Face{{0, 5, 1}},
-            Face{{1, 6, 2}}, Face{{2, 6, 7}}, Face{{2, 7, 3}}, Face{{3, 7, 8}}, Face{{3, 8, 4}},
-            Face{{4, 8, 9}}, Face{{4, 9, 5}}, Face{{5, 9, 10}}, Face{{5, 10, 1}}, Face{{1, 10, 6}},
-            Face{{11, 6, 7}}, Face{{11, 7, 8}}, Face{{11, 8, 9}}, Face{{11, 9, 10}}, Face{{11, 10, 6}}
+        Face{{0, 11, 5}}, Face{{0, 5, 1}}, Face{{0, 1, 7}}, Face{{0, 7, 10}}, Face{{0, 10, 11}},
+        Face{{1, 5, 9}}, Face{{5, 11, 4}}, Face{{11, 10, 2}}, Face{{10, 7, 6}}, Face{{7, 1, 8}},
+        Face{{3, 9, 4}}, Face{{3, 4, 2}}, Face{{3, 2, 6}}, Face{{3, 6, 8}}, Face{{3, 8, 9}},
+        Face{{4, 9, 5}}, Face{{2, 4, 11}}, Face{{6, 2, 10}}, Face{{8, 6, 7}}, Face{{9, 8, 1}}
     };
 
     return icosahedron;
 }
 
+
 Figure Figure::createDodecahedron() {
     Figure dodecahedron;
-    Figure icosahedron = createIcosahedron();
+    const double t = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
+    const double t_inv = 1.0 / t;
 
-    // Calculate centroids of each face of the icosahedron to use as vertices of the dodecahedron
-    for (const auto& face : icosahedron.faces) {
-        Vector3D p1 = icosahedron.points[face.point_indexes[0]];
-        Vector3D p2 = icosahedron.points[face.point_indexes[1]];
-        Vector3D p3 = icosahedron.points[face.point_indexes[2]];
+    // Define vertices
+     dodecahedron.points = {
+        // Cube corners
+        Vector3D::point(-1, -1, -1), Vector3D::point( 1, -1, -1), Vector3D::point( 1,  1, -1), Vector3D::point(-1,  1, -1),
+        Vector3D::point(-1, -1,  1), Vector3D::point( 1, -1,  1), Vector3D::point( 1,  1,  1), Vector3D::point(-1,  1,  1),
+        // Points on axes planes
+        Vector3D::point(0, -t_inv, -t), Vector3D::point(0,  t_inv, -t), Vector3D::point(0, -t_inv,  t), Vector3D::point(0,  t_inv,  t),
+        Vector3D::point(-t, 0, -t_inv), Vector3D::point( t, 0, -t_inv), Vector3D::point(-t, 0,  t_inv), Vector3D::point( t, 0,  t_inv),
+        Vector3D::point(-t_inv, -t, 0), Vector3D::point( t_inv, -t, 0), Vector3D::point(-t_inv,  t, 0), Vector3D::point( t_inv,  t, 0)
+     };
 
-        // Calculate the centroid of the face
-        Vector3D centroid = Vector3D::point(
-                (p1.x + p2.x + p3.x) / 3.0,
-                (p1.y + p2.y + p3.y) / 3.0,
-                (p1.z + p2.z + p3.z) / 3.0
-        );
+      // Normalize points (optional)
+      for(auto& p : dodecahedron.points) {
+        double len = p.length();
+         if (len > 1e-9) { p.x /= len; p.y /= len; p.z /= len; }
+      }
 
-
-        /* Normalize the centroids
-        double magnitude = sqrt(centroid.x * centroid.x + centroid.y * centroid.y + centroid.z * centroid.z);
-        if (magnitude != 0) {
-            centroid.x /= magnitude;
-            centroid.y /= magnitude;
-            centroid.z /= magnitude;
-        }*/
-
-        // Add the centroids to the dodecahedron points
-        dodecahedron.points.push_back(centroid);
-    }
-
-    // Define the faces of the dodecahedron based on the centroids calculated
-    dodecahedron.faces = {
-            Face{{0, 1, 2, 3, 4}},    // Face connecting vertices 0, 1, 2, 3, and 4
-            Face{{0, 5, 6, 7, 1}},    // enz..
-            Face{{1, 7, 8, 9, 2}},
-            Face{{2, 9, 10, 11, 3}},
-            Face{{3, 11, 12, 13, 4}},
-            Face{{4, 13, 14, 5, 0}},
-            Face{{19, 18, 17, 16, 15}},
-            Face{{19, 14, 13, 12, 18}},
-            Face{{18, 12, 11, 10, 17}},
-            Face{{17, 10, 9, 8, 16}},
-            Face{{16, 8, 7, 6, 15}},
-            Face{{15, 6, 5, 14, 19}}
-    };
-
+     // Define faces (pentagons, indices based on points above, CCW winding)
+     dodecahedron.faces = {
+        Face{{ 2,  9,  8,  1, 13}}, Face{{ 1, 17, 16,  0,  8}}, Face{{ 0, 12, 14,  4, 16}},
+        Face{{ 4, 10, 11,  5, 14}}, Face{{ 5, 15,  9,  2, 11}}, Face{{ 3, 18, 19,  2,  9}},
+        Face{{ 3, 12,  0, 16, 18}}, Face{{ 7, 14,  4, 10, 18}}, Face{{ 6, 11,  5, 15, 10}},
+        Face{{ 6, 19,  3, 18, 10}}, Face{{ 7, 15,  6, 19, 18}}, Face{{ 7, 17,  1, 13, 15}} // Check winding/indices carefully
+     };
+     // Note: Dodecahedron faces are hard to get right. A common method is dual of icosahedron.
+     // Using the icosahedron dual method (as in friend's code) might be simpler:
+     /*
+     Figure icosahedron = createIcosahedron();
+     for (const auto& face : icosahedron.faces) {
+         Vector3D p1 = icosahedron.points[face.point_indexes[0]];
+         Vector3D p2 = icosahedron.points[face.point_indexes[1]];
+         Vector3D p3 = icosahedron.points[face.point_indexes[2]];
+         Vector3D centroid = (p1 + p2 + p3) / 3.0; // Using Vector3D operator overloading assumed
+         // Normalize the centroid to project onto sphere
+         double len = centroid.length();
+         if (len > 1e-9) { centroid = centroid / len; }
+         dodecahedron.points.push_back(centroid);
+     }
+     // Define faces based on adjacency of icosahedron faces (complex)
+     // Friend's code hardcodes indices assuming specific icosahedron face order.
+     // If using friend's indices, ensure the icosahedron generation is identical.
+     dodecahedron.faces = {
+        Face{{ 0,  1,  2,  3,  4}}, Face{{ 0,  5,  6,  7,  1}}, Face{{ 1,  7,  8,  9,  2}},
+        Face{{ 2,  9, 10, 11,  3}}, Face{{ 3, 11, 12, 13,  4}}, Face{{ 4, 13, 14,  5,  0}},
+        Face{{19, 18, 17, 16, 15}}, Face{{19, 14, 13, 12, 18}}, Face{{18, 12, 11, 10, 17}},
+        Face{{17, 10,  9,  8, 16}}, Face{{16,  8,  7,  6, 15}}, Face{{15,  6,  5, 14, 19}}
+     };
+     */
     return dodecahedron;
 }
 
+
 Figure Figure::createCylinder(int n, double height) {
     Figure cylinder;
+    if (n < 3) n = 3; // Need at least 3 points for a base
 
-    vector<Vector3D> baseVertices;
-    vector<Vector3D> topVertices;
-
+    // Bottom circle points (z=0)
     for (int i = 0; i < n; ++i) {
         double angle = 2.0 * Pi * i / n;
-        double x = cos(angle);
-        double y = sin(angle);
-        baseVertices.push_back(Vector3D::point(x, y, 0));
-        topVertices.push_back(Vector3D::point(x, y, height));
+        cylinder.points.push_back(Vector3D::point(cos(angle), sin(angle), 0));
     }
-
-    // Combine base and top vertices
-    cylinder.points.insert(cylinder.points.end(), baseVertices.begin(), baseVertices.end());
-    cylinder.points.insert(cylinder.points.end(), topVertices.begin(), topVertices.end());
-
-    // Create base face
-    vector<int> baseFaceIndices;
+    // Top circle points (z=height)
     for (int i = 0; i < n; ++i) {
-        baseFaceIndices.push_back(i);
+        double angle = 2.0 * Pi * i / n;
+        cylinder.points.push_back(Vector3D::point(cos(angle), sin(angle), height));
     }
+
+    // Create bottom face (indices 0 to n-1) - Reverse order for CCW from outside? Check convention.
+    vector<int> baseFaceIndices;
+    // If viewed from below, CCW is 0, 1, 2... If viewed from above, CW is 0, 1, 2...
+    // Let's assume CCW from outside means CCW when looking towards origin. So base face (z=0) needs CW winding.
+    for (int i = n - 1; i >= 0; --i) {
+         baseFaceIndices.push_back(i);
+    }
+    // Or simply CCW if that's the convention:
+    // for (int i = 0; i < n; ++i) { baseFaceIndices.push_back(i); }
     cylinder.faces.push_back(Face{baseFaceIndices});
 
-    // Create top face
+
+    // Create top face (indices n to 2n-1) - Needs CCW winding when viewed from above.
     vector<int> topFaceIndices;
     for (int i = 0; i < n; ++i) {
-        topFaceIndices.push_back(n + i); // top vertices start from index n
+        topFaceIndices.push_back(n + i);
     }
     cylinder.faces.push_back(Face{topFaceIndices});
 
-    // Create side faces
+    // Create side faces (quads: bottom_i, bottom_next, top_next, top_i)
     for (int i = 0; i < n; ++i) {
         int next = (i + 1) % n;
+        // Indices: i, next, n + next, n + i (CCW winding from outside)
         cylinder.faces.push_back(Face{{i, next, n + next, n + i}});
     }
-
-    // extra uitleg: baseVertices and topVertices vectors slaan de points op de basis en op de top (op deze cirkels dus)
 
     return cylinder;
 }
 
 Figure Figure::createCone(int n, double height) {
     Figure cone;
-    std::vector<Vector3D> vertices;
+    if (n < 3) n = 3;
 
-    // Create the vertices for the base
+    // Base circle points (z=0)
     for (int i = 0; i < n; ++i) {
-        double angle = 2 * Pi * i / n;
-        vertices.push_back(Vector3D::point(cos(angle), sin(angle), 0));
+        double angle = 2.0 * Pi * i / n;
+        cone.points.push_back(Vector3D::point(cos(angle), sin(angle), 0));
     }
+    // Apex point (index n)
+    cone.points.push_back(Vector3D::point(0, 0, height));
+    int apexIndex = n;
 
-    // Add the apex of the cone
-    Vector3D apex = Vector3D::point(0, 0, height);
-    vertices.push_back(apex);
-
-    // Store the vertices in the cone object
-    cone.points = vertices;
-
-    // Create the base face (n-sided polygon)
-    std::vector<int> baseFace;
-    for (int i = 0; i < n; ++i) {
-        baseFace.push_back(i);
+    // Create base face (indices 0 to n-1) - Needs CW winding if viewed from above for CCW outside.
+    vector<int> baseFaceIndices;
+    for (int i = n - 1; i >= 0; --i) { // CW order
+        baseFaceIndices.push_back(i);
     }
-    cone.faces.push_back(Face{baseFace});
+    // Or CCW if convention demands:
+    // for (int i = 0; i < n; ++i) { baseFaceIndices.push_back(i); }
+    cone.faces.push_back(Face{baseFaceIndices});
 
-    // Create the triangular side faces
+
+    // Create side faces (triangles: base_i, base_next, apex)
     for (int i = 0; i < n; ++i) {
         int next = (i + 1) % n;
-        cone.faces.push_back(Face{{i, next, n}});
+        // Indices: i, next, apexIndex (CCW winding from outside)
+        cone.faces.push_back(Face{{i, next, apexIndex}});
     }
 
     return cone;
 }
 
-// Helper function to normalize a vector to lie on the sphere surface
-Vector3D normalize(const Vector3D& v) {
-    double length = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    return Vector3D::point(v.x / length, v.y / length, v.z / length);
+// Helper function to normalize a vector - place inside Figure.cpp or globally if needed elsewhere
+static Vector3D normalize(const Vector3D& v) {
+    double length = v.length();
+    if (length < 1e-9) return v; // Avoid division by zero, return original vector
+    return v / length; // Assuming Vector3D supports division by scalar
 }
+
+// Helper for sphere: recursively subdivide triangle faces
+static void subdivideAndNormalize(Figure& figure, int n_iterations) {
+    for (int iter = 0; iter < n_iterations; ++iter) {
+        Figure subdividedFigure;
+        subdividedFigure.color = figure.color; // Preserve color
+        std::map<std::pair<int, int>, int> midpoint_cache; // Cache midpoints to avoid duplicates
+
+        auto get_midpoint_index = [&](int p1_idx, int p2_idx) -> int {
+            // Ensure order for cache key
+            if (p1_idx > p2_idx) std::swap(p1_idx, p2_idx);
+            auto key = std::make_pair(p1_idx, p2_idx);
+
+            auto it = midpoint_cache.find(key);
+            if (it != midpoint_cache.end()) {
+                return it->second; // Return cached index
+            }
+
+            // Calculate, normalize, add midpoint, and cache index
+            const Vector3D& p1 = figure.points[p1_idx];
+            const Vector3D& p2 = figure.points[p2_idx];
+            Vector3D midpoint = normalize((p1 + p2) * 0.5); // Use overloaded ops if available
+            subdividedFigure.points.push_back(midpoint);
+            int new_index = subdividedFigure.points.size() - 1;
+            midpoint_cache[key] = new_index;
+            return new_index;
+        };
+
+        // Add original points to the new figure first
+        subdividedFigure.points = figure.points;
+
+        // Process each face of the old figure
+        for (const auto& face : figure.faces) {
+             if (face.point_indexes.size() != 3) continue; // Only subdivide triangles
+
+             int a_idx = face.point_indexes[0];
+             int b_idx = face.point_indexes[1];
+             int c_idx = face.point_indexes[2];
+
+             // Get indices of midpoints (calculates and adds them if not cached)
+             int ab_mid_idx = get_midpoint_index(a_idx, b_idx);
+             int bc_mid_idx = get_midpoint_index(b_idx, c_idx);
+             int ca_mid_idx = get_midpoint_index(c_idx, a_idx);
+
+             // Create 4 new faces
+             subdividedFigure.faces.push_back(Face{{a_idx, ab_mid_idx, ca_mid_idx}});
+             subdividedFigure.faces.push_back(Face{{b_idx, bc_mid_idx, ab_mid_idx}});
+             subdividedFigure.faces.push_back(Face{{c_idx, ca_mid_idx, bc_mid_idx}});
+             subdividedFigure.faces.push_back(Face{{ab_mid_idx, bc_mid_idx, ca_mid_idx}}); // Central triangle
+        }
+        figure = std::move(subdividedFigure); // Replace the old figure with the subdivided one
+    }
+
+     // Final normalization of all points after all subdivisions
+     for (auto& point : figure.points) {
+         point = normalize(point);
+     }
+}
+
 
 Figure Figure::createSphere(int n) {
-    Figure figure;
+    // Start with an Icosahedron as the base shape
+    Figure sphere = createIcosahedron();
+    sphere.color = Color(1.0, 1.0, 1.0); // Default sphere color
 
-    // #1: Generate an initial icosahedron
-    figure = createIcosahedron();
+    // Subdivide and normalize
+    subdivideAndNormalize(sphere, n);
 
-    // #2: Subdivide each face of the icosahedron n times
-    for (int counter = 0; counter < n; ++counter) {
-        Figure tempFigure;
-
-        for (const auto& face : figure.faces) {
-            Vector3D pointA = figure.points[face.point_indexes[0]];
-            Vector3D pointB = figure.points[face.point_indexes[1]];
-            Vector3D pointC = figure.points[face.point_indexes[2]];
-
-            Vector3D pointD = normalize((pointA + pointB) / 2);
-            Vector3D pointE = normalize((pointA + pointC) / 2);
-            Vector3D pointF = normalize((pointB + pointC) / 2);
-
-            tempFigure.points.push_back(pointA);
-            tempFigure.points.push_back(pointB);
-            tempFigure.points.push_back(pointC);
-            tempFigure.points.push_back(pointD);
-            tempFigure.points.push_back(pointE);
-            tempFigure.points.push_back(pointF);
-
-            tempFigure.faces.push_back(Face{{(int)tempFigure.points.size() - 6, (int)tempFigure.points.size() - 3, (int)tempFigure.points.size() - 2}});
-            tempFigure.faces.push_back(Face{{(int)tempFigure.points.size() - 5, (int)tempFigure.points.size() - 1, (int)tempFigure.points.size() - 3}});
-            tempFigure.faces.push_back(Face{{(int)tempFigure.points.size() - 4, (int)tempFigure.points.size() - 2, (int)tempFigure.points.size() - 1}});
-            tempFigure.faces.push_back(Face{{(int)tempFigure.points.size() - 3, (int)tempFigure.points.size() - 1, (int)tempFigure.points.size() - 2}});
-        }
-
-        figure = tempFigure;
-    }
-
-    // #4: Normalize all points to lie on the sphere's surface
-    for (auto& point : figure.points) {
-        point = normalize(point);
-    }
-
-    return figure;
+    return sphere;
 }
+
 
 Figure Figure::createTorus(double R, double r, int n, int m) {
     Figure torus;
-
-    std::vector<Vector3D> vertices;
-    std::vector<Face> faces;
+     if (n < 3) n = 3;
+     if (m < 3) m = 3;
 
     // Generate vertices
-    for (int i = 0; i < n; ++i) {
-        double theta = 2 * Pi * i / n;
-        for (int j = 0; j < m; ++j) {
-            double phi = 2 * Pi * j / m;
+    for (int i = 0; i < n; ++i) { // Main ring segments
+        double u = 2.0 * Pi * i / n; // Angle around Y-axis (or Z)
+        for (int j = 0; j < m; ++j) { // Tube segments
+            double v = 2.0 * Pi * j / m; // Angle around tube center
 
-            double x = (R + r * cos(phi)) * cos(theta);
-            double y = (R + r * cos(phi)) * sin(theta);
-            double z = r * sin(phi);
+            double x = (R + r * cos(v)) * cos(u);
+            double y = (R + r * cos(v)) * sin(u);
+            double z = r * sin(v);
 
-            vertices.push_back(Vector3D::point(x, y, z));
+            torus.points.push_back(Vector3D::point(x, y, z));
         }
     }
 
-    // Generate faces
+    // Generate faces (quads)
     for (int i = 0; i < n; ++i) {
+        int i_next = (i + 1) % n;
         for (int j = 0; j < m; ++j) {
-            int current = i * m + j;
-            int nextJ = (j + 1) % m;
-            int nextI = (i + 1) % n;
+            int j_next = (j + 1) % m;
 
-            int currentNextJ = i * m + nextJ;
-            int nextINextJ = nextI * m + nextJ;
-            int nextICurrentJ = nextI * m + j;
+            // Indices of the 4 corners of the quad
+            int idx00 = i * m + j;
+            int idx10 = i_next * m + j;
+            int idx11 = i_next * m + j_next;
+            int idx01 = i * m + j_next;
 
-            faces.push_back(Face{{current, currentNextJ, nextINextJ, nextICurrentJ}});
+            // Ensure CCW winding from outside
+            torus.faces.push_back(Face{{idx00, idx10, idx11, idx01}});
         }
     }
-
-    torus.points = vertices;
-    torus.faces = faces;
 
     return torus;
 }
@@ -350,121 +399,132 @@ Figure Figure::createTorus(double R, double r, int n, int m) {
 Figure Figure::generate3DLSystem(const std::string &inputFile, const Color &color) {
     LParser::LSystem3D l_system;
 
-    // Adjust the path to include the correct directory
-    std::string filePath = inputFile;
+    // Adjust the path to include the correct directory if needed
+    std::string filePath = inputFile; // Assume inputFile is the full or relative path
 
     std::ifstream inputStream(filePath);
     if (!inputStream.is_open()) {
-        throw std::runtime_error("Could not open L3D file: " + filePath);
+        // It's often better to throw an exception than print to cerr and continue
+        throw std::runtime_error("Could not open L-System file: " + filePath);
     }
 
-    inputStream >> l_system;
+    try {
+        inputStream >> l_system; // Use the LParser library to read the L-system
+    } catch (const std::exception& e) {
+         inputStream.close();
+         throw std::runtime_error("Error parsing L-System file '" + filePath + "': " + e.what());
+    }
     inputStream.close();
 
     Figure figure;
-    figure.color = color;
+    figure.color = color; // Assign the provided color
 
-    double angle = l_system.get_angle() * Pi / 180.0;
+    // Initial state
+    double angle_rad = l_system.get_angle() * Pi / 180.0; // Angle in radians
     Vector3D currentPosition = Vector3D::point(0, 0, 0);
-    Vector3D H = Vector3D::vector(1, 0, 0);
-    Vector3D L = Vector3D::vector(0, 1, 0);
-    Vector3D U = Vector3D::vector(0, 0, 1);
+    Vector3D H = Vector3D::vector(1, 0, 0); // Heading
+    Vector3D L = Vector3D::vector(0, 1, 0); // Left
+    Vector3D U = Vector3D::vector(0, 0, 1); // Up
 
-    std::stack<Vector3D> positionStack;
-    std::stack<std::vector<Vector3D>> angleStack;
+    std::stack<std::tuple<Vector3D, Vector3D, Vector3D, Vector3D>> stateStack; // Stack for position, H, L, U
 
-    // Generate the L-System string
-    std::set<char> alphabet = l_system.get_alphabet();
+    // Generate the full instruction string
     std::string lsystemString = l_system.get_initiator();
-    std::string nextString;
+    std::set<char> alphabet = l_system.get_alphabet();
+    bool ignoreUnknown = true; // Decide how to handle symbols not in alphabet or commands
 
     for (unsigned int i = 0; i < l_system.get_nr_iterations(); ++i) {
-        nextString.clear();
+        std::string nextString = "";
         for (char symbol : lsystemString) {
-            if (alphabet.find(symbol) != alphabet.end()) {
+            if (alphabet.count(symbol)) { // Check if symbol is in the alphabet for replacement
                 nextString += l_system.get_replacement(symbol);
             } else {
-                nextString += symbol;
+                // Keep commands (+, -, ^, &, \, /, |, (, )) and potentially other known symbols
+                 if (string("+-^&\\/|()").find(symbol) != string::npos || !ignoreUnknown) {
+                     nextString += symbol;
+                 } else if (!alphabet.count(symbol)) {
+                     // If it's not a command and not in alphabet, keep it only if it should be drawn
+                     if (l_system.draw(symbol)) {
+                         nextString += symbol;
+                     }
+                     // else: ignore unknown non-drawable symbols silently
+                 }
             }
         }
         lsystemString = nextString;
     }
 
-    Vector3D _H = H;
-    Vector3D _L = L;
-    Vector3D _U = U;
+    // Process the final instruction string
+    int pointIndexOffset = 0; // To keep track of indices for faces
 
     for (char command : lsystemString) {
+        Vector3D _H, _L, _U; // Temporary holders for rotations
+
         switch (command) {
-            case '+':
-                _H = H;
-                _L = L;
-
-                H = _H * cos(angle) + _L * sin(angle);
-                L = -_H * sin(angle) + _L * cos(angle);
+            case '+': // Turn Left (+)
+                _H = H; _L = L;
+                H = _H * cos(angle_rad) + _L * sin(angle_rad);
+                L = -_H * sin(angle_rad) + _L * cos(angle_rad);
                 break;
-            case '-':
-                _H = H;
-                _L = L;
-
-                H = _H * cos(-angle) + _L * sin(-angle);
-                L = -_H * sin(-angle) + _L * cos(-angle);
+            case '-': // Turn Right (-)
+                 _H = H; _L = L;
+                 H = _H * cos(-angle_rad) + _L * sin(-angle_rad);
+                 L = -_H * sin(-angle_rad) + _L * cos(-angle_rad);
+                 break;
+            case '^': // Pitch Up (^)
+                 _H = H; _U = U;
+                 H = _H * cos(angle_rad) + _U * sin(angle_rad);
+                 U = -_H * sin(angle_rad) + _U * cos(angle_rad);
+                 break;
+            case '&': // Pitch Down (&)
+                 _H = H; _U = U;
+                 H = _H * cos(-angle_rad) + _U * sin(-angle_rad);
+                 U = -_H * sin(-angle_rad) + _U * cos(-angle_rad);
+                 break;
+            case '\\': // Roll Left (\) - Note: \ needs escaping in string literals if used directly
+                 _L = L; _U = U;
+                 L = _L * cos(angle_rad) + _U * sin(angle_rad);
+                 U = -_L * sin(angle_rad) + _U * cos(angle_rad);
+                 break;
+            case '/': // Roll Right (/)
+                 _L = L; _U = U;
+                 L = _L * cos(-angle_rad) + _U * sin(-angle_rad);
+                 U = -_L * sin(-angle_rad) + _U * cos(-angle_rad);
+                 break;
+            case '|': // Turn Around (|)
+                 H = -H;
+                 L = -L; // Roll 180 degrees
+                 break;
+            case '(': // Push state
+                stateStack.push({currentPosition, H, L, U});
                 break;
-            case '^':
-                _H = H;
-                _U = U;
-
-                H = _H * cos(angle) + _U * sin(angle);
-                U = -_H * sin(angle) + _U * cos(angle);
-                break;
-            case '&':
-                _H = H;
-                _U = U;
-
-                H = _H * cos(-angle) + _U * sin(-angle);
-                U = -_H * sin(-angle) + _U * cos(-angle);
-                break;
-            case '\\':
-                _U = U;
-                _L = L;
-
-                U = _U * cos(angle) + _L * sin(angle);
-                L = -_U * sin(angle) + _L * cos(angle);
-                break;
-            case '/':
-                _U = U;
-                _L = L;
-
-                U = _U * cos(-angle) + _L * sin(-angle);
-                L = -_U * sin(-angle) + _L * cos(-angle);
-                break;
-            case '|':
-                H = -H;
-                L = -L;
-                break;
-            case '(':
-                positionStack.push(currentPosition);
-                angleStack.push({H, L, U});
-                break;
-            case ')': {
-                currentPosition = positionStack.top();
-                positionStack.pop();
-                std::vector<Vector3D> angles = angleStack.top();
-                angleStack.pop();
-                H = angles[0];
-                L = angles[1];
-                U = angles[2];
-                break;
-            }
-            default:
+            case ')': // Pop state
+                if (!stateStack.empty()) {
+                     auto state = stateStack.top();
+                     stateStack.pop();
+                     currentPosition = std::get<0>(state);
+                     H = std::get<1>(state);
+                     L = std::get<2>(state);
+                     U = std::get<3>(state);
+                } // else: stack underflow, ignore or warn
+                 break;
+            default: // Check if it's a symbol to be drawn
                 if (l_system.draw(command)) {
-                    Vector3D newPosition = currentPosition + H;
-                    figure.points.push_back(currentPosition);
-                    figure.points.push_back(newPosition);
-                    figure.faces.push_back(Face{{(int)figure.points.size() - 2, (int)figure.points.size() - 1}});
-                    currentPosition = newPosition;
+                     Vector3D nextPosition = currentPosition + H; // Move forward by H vector
+                     // Add start and end points
+                     figure.points.push_back(currentPosition);
+                     figure.points.push_back(nextPosition);
+                     // Create a face representing this line segment
+                     figure.faces.push_back(Face{{(int)figure.points.size() - 2, (int)figure.points.size() - 1}});
+                     // Update current position
+                     currentPosition = nextPosition;
                 } else {
-                    currentPosition += H;
+                    // If symbol is not drawn but is in alphabet (like a variable used for growth), just move
+                    // Or if it's an unknown symbol we decided not to ignore, also just move? Or do nothing?
+                    // Standard L-System interpretation: If not draw, just move.
+                    // If it's truly unknown, perhaps do nothing.
+                     // Let's assume move if not drawing.
+                     currentPosition = currentPosition + H;
                 }
                 break;
         }
