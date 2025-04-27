@@ -33,6 +33,7 @@ set(engine_sources
 		draw_zbuffered_wireframes.cpp
 		ZBuffer.cpp
 		draw_triangulated_wireframes.cpp
+		fractals3D.cpp
 )
 
 ############################################################

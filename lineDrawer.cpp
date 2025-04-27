@@ -2,6 +2,7 @@
 #include "Figure.h"
 #include "Transformations.h"
 #include "Projection.h"
+#include "fractals3D.h"
 #include "ini_configuration.h"
 #include "Line2D.h"
 #include <cmath>
@@ -433,7 +434,28 @@ Figures3D generateFigures(const ini::Configuration &configuration) {
                 face.point_indexes = lineData;
                 figure.faces.push_back(face);
             }
+        } else if (type == "MengerSponge") {
+            int nrIterations = configuration["Figure" + std::to_string(i)]["nrIterations"].as_int_or_die();
+            figure = generateMengerSponge(nrIterations);
         }
+        else if (type == "FractalTetrahedron") {
+            int nrIterations = configuration["Figure" + std::to_string(i)]["nrIterations"].as_int_or_die();
+            figure = generateFractalTetrahedron(nrIterations);
+        }
+        else if (type == "FractalIcosahedron") {
+            int nrIterations = configuration["Figure" + std::to_string(i)]["nrIterations"].as_int_or_die();
+            figure = generateFractalIcosahedron(nrIterations);
+        }
+        else if (type == "FractalCube") {
+            int nrIterations = configuration["Figure" + std::to_string(i)]["nrIterations"].as_int_or_die();
+            figure = generateFractalCube(nrIterations);
+        }
+        else if (type == "FractalOctahedron") {
+            int nrIterations = configuration["Figure" + std::to_string(i)]["nrIterations"].as_int_or_die();
+            figure = generateFractalOctahedron(nrIterations);
+        }
+
+
 
         // Apply the color to the figure
         figure.color = color;
