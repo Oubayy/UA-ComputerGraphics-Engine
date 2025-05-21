@@ -115,7 +115,7 @@ Triangles ZBuffer::doProjectTriangle(const Figures3D &figures, const double &d) 
     return triangles;
 }
 
-
+/*
 void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d) {
     Vector3D A = Vector3D::point(triangle.p1.x, triangle.p1.y, triangle.z1);
     Vector3D B = Vector3D::point(triangle.p2.x, triangle.p2.y, triangle.z2);
@@ -177,6 +177,101 @@ void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle
                     static_cast<uint8_t>(triangle.color.blue * 255)
                 };
                 this->at(x)[y] = z;
+            }
+        }
+    }
+}
+*/
+
+void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle_details, const double &d_projection_plane_distance_unused /* This parameter is not used */) {
+    Point2D pA_screen = triangle_details.p1; // Already scaled and translated screen coordinates
+    Point2D pB_screen = triangle_details.p2;
+    Point2D pC_screen = triangle_details.p3;
+
+    // Original positive Z-depths from the eye
+    double depth_A = triangle_details.z1;
+    double depth_B = triangle_details.z2;
+    double depth_C = triangle_details.z3;
+
+    // Calculate 1/depth for each vertex.
+    double inv_depth_A = (depth_A > 1e-9) ? 1.0 / depth_A : std::numeric_limits<double>::lowest();
+    double inv_depth_B = (depth_B > 1e-9) ? 1.0 / depth_B : std::numeric_limits<double>::lowest();
+    double inv_depth_C = (depth_C > 1e-9) ? 1.0 / depth_C : std::numeric_limits<double>::lowest();
+
+    // If all points are effectively at/behind camera (invalid depths), skip.
+    if (inv_depth_A == std::numeric_limits<double>::lowest() &&
+        inv_depth_B == std::numeric_limits<double>::lowest() &&
+        inv_depth_C == std::numeric_limits<double>::lowest()) {
+        return;
+    }
+
+    // Calculate the screen-space bounding box of the triangle
+    int min_x_bb = lround(std::min({pA_screen.x, pB_screen.x, pC_screen.x}));
+    int max_x_bb = lround(std::max({pA_screen.x, pB_screen.x, pC_screen.x}));
+    int min_y_bb = lround(std::min({pA_screen.y, pB_screen.y, pC_screen.y}));
+    int max_y_bb = lround(std::max({pA_screen.y, pB_screen.y, pC_screen.y}));
+
+    // Clip bounding box to image dimensions
+    min_x_bb = std::max(0, min_x_bb);
+    max_x_bb = std::min((int)image.get_width() - 1, max_x_bb);
+    min_y_bb = std::max(0, min_y_bb);
+    max_y_bb = std::min((int)image.get_height() - 1, max_y_bb);
+
+    // Denominator for barycentric coordinates (2 * area of triangle)
+    // Using pA, pB, pC for screen coordinates (triangle_details.p1 etc.)
+    double bary_denom = (pB_screen.y - pC_screen.y) * (pA_screen.x - pC_screen.x) +
+                        (pC_screen.x - pB_screen.x) * (pA_screen.y - pC_screen.y);
+
+    if (std::abs(bary_denom) < 1e-9) { // Degenerate triangle on screen
+        return;
+    }
+
+    for (int y_pixel = min_y_bb; y_pixel <= max_y_bb; ++y_pixel) {
+        for (int x_pixel = min_x_bb; x_pixel <= max_x_bb; ++x_pixel) {
+            // Calculate barycentric coordinates for the center of the current pixel
+            // It's often fine to use (x_pixel, y_pixel) directly if vertices were rounded,
+            // but using pixel centers (x_pixel + 0.5, y_pixel + 0.5) is more accurate.
+            // Let's use integer pixel coordinates for simplicity matching the example.
+            double px_test = static_cast<double>(x_pixel); // or x_pixel + 0.5;
+            double py_test = static_cast<double>(y_pixel); // or y_pixel + 0.5;
+
+            double lambda1 = ((pB_screen.y - pC_screen.y) * (px_test - pC_screen.x) +
+                              (pC_screen.x - pB_screen.x) * (py_test - pC_screen.y)) / bary_denom;
+            double lambda2 = ((pC_screen.y - pA_screen.y) * (px_test - pC_screen.x) +
+                              (pA_screen.x - pC_screen.x) * (py_test - pC_screen.y)) / bary_denom;
+            double lambda3 = 1.0 - lambda1 - lambda2;
+
+            // Check if pixel is inside or on the edge of the triangle
+            // A small epsilon can help with floating point inaccuracies at edges
+            // double epsilon = 1e-7; // Adjust if needed
+            // if (lambda1 >= -epsilon && lambda1 <= 1.0 + epsilon &&
+            //     lambda2 >= -epsilon && lambda2 <= 1.0 + epsilon &&
+            //     lambda3 >= -epsilon && lambda3 <= 1.0 + epsilon)
+            // A simpler check (pixel center strictly inside or on edge):
+            if (lambda1 >= 0.0 && lambda1 <= 1.0 &&
+                lambda2 >= 0.0 && lambda2 <= 1.0 &&
+                lambda3 >= 0.0 && lambda3 <= 1.0)
+            {
+                // Interpolate 1/depth using barycentric coordinates
+                double current_inv_depth = inv_depth_A * lambda1 +
+                                           inv_depth_B * lambda2 +
+                                           inv_depth_C * lambda3;
+
+                // Optional: Small bias for Z-fighting (consistent with previous attempt)
+                // current_inv_depth *= 1.0001; // Re-evaluate if this is needed/helpful
+
+                // Z-Buffer check: larger 1/depth value means closer.
+                // this->at(x_pixel)[y_pixel] is ZBuffer's internal storage.
+                if (x_pixel >= 0 && x_pixel < image.get_width() && y_pixel >=0 && y_pixel < image.get_height()){ // Redundant due to BB clip, but safe
+                    if (current_inv_depth > this->at(x_pixel)[y_pixel]) {
+                        image(x_pixel, y_pixel) = img::Color(
+                            static_cast<uint8_t>(round(triangle_details.color.red * 255)),
+                            static_cast<uint8_t>(round(triangle_details.color.green * 255)),
+                            static_cast<uint8_t>(round(triangle_details.color.blue * 255))
+                        );
+                        this->at(x_pixel)[y_pixel] = current_inv_depth;
+                    }
+                }
             }
         }
     }

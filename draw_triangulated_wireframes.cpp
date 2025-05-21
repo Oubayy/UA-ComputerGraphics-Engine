@@ -38,10 +38,10 @@ img::EasyImage draw_triangulated_wireframes(const ini::Configuration &configurat
                 triangle.point_indexes.push_back(face.point_indexes[i]);
                 triangle.point_indexes.push_back(face.point_indexes[i + 1]);
 
-                std::cout  << "Figure color: "
+                /*std::cout  << "Figure color: "
                         << figure.color.red << ", "
                         << figure.color.green << ", "
-                        << figure.color.blue << std::endl;
+                        << figure.color.blue << std::endl;*/
 
 
                 // triangle.color = face.color; <-- This is still commented out (correctly, Face has no color)
@@ -91,19 +91,19 @@ img::EasyImage draw_triangulated_wireframes(const ini::Configuration &configurat
         triangle.p3.x = triangle.p3.x * d + dx;
         triangle.p3.y = triangle.p3.y * d + dy;
 
-        std::cout << "Triangle: ("
+        /*std::cout << "Triangle: ("
           << triangle.p1.x << "," << triangle.p1.y << ") -> ("
           << triangle.p2.x << "," << triangle.p2.y << ") -> ("
           << triangle.p3.x << "," << triangle.p3.y << ") | Color: ("
           << triangle.color.red << ", "
           << triangle.color.green << ", "
-          << triangle.color.blue << ")\n";
+          << triangle.color.blue << ")\n";*/
 
 
         zbuffer.draw_zbuf_triangle(image, triangle, 1);
     }
 
-    std::cout << "Finished drawing, image size: " << image.get_width() << "x" << image.get_height() << std::endl;
+    //std::cout << "Finished drawing, image size: " << image.get_width() << "x" << image.get_height() << std::endl;
 
     return image;
 }
