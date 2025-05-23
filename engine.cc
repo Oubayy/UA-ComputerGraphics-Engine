@@ -2,7 +2,6 @@
 #include "ini_configuration.h"
 #include "intro_exercises.h"
 #include "l_systems.h"
-#include "ImageComparator.h"
 #include "lijntekeningen3D.h"
 #include "draw_zbuffered_wireframes.h"
 #include "draw_triangulated_wireframes.h"
@@ -120,9 +119,6 @@ int main(int argc, char const* argv[])
                 std::cerr << "Error: insufficient memory" << std::endl;
                 retVal = 100;
         }
-
-        ImageComparator image_comparator("/home/oubayy/CLionProjects/UA-ComputerGraphics-Engine/ini");
-        image_comparator.compare();
 
         return retVal;
 }

@@ -1,20 +1,20 @@
 #include "ZBuffer.h"
-#include "Figure.h"
+#include "Figure.h"       // Figures3D, Figure, Face
 #include "Projection.h"
 #include "vector3d.h"
 #include "easy_image.h"
-#include "Line2D.h"
-#include <limits>       // Required for std::numeric_limits
-#include <cmath>        // Required for std::round, std::sqrt, std::isinf
-#include <sstream>      // Required for std::stringstream
+#include "Line2D.h"       // Triangle, Point2D, Color
+#include <limits>         // std::numeric_limits
+#include <cmath>          // std::round, std::abs, std::min, std::max, lround
+#include <sstream>        // std::stringstream
 #include <vector>
-#include <algorithm>    // Required for std::min, std::max, std::swap
+#include <algorithm>      // std::min, std::max, std::swap
+#include <iostream>       // std::cerr
 
 using namespace std;
 
 // Constructor: Initializes the Z-buffer
 ZBuffer::ZBuffer(const int width, const int height) {
-    // Initialize with the smallest possible double value (~negative infinity)
     double negInf = std::numeric_limits<double>::lowest();
 
     if (width <= 0 || height <= 0) {
@@ -22,255 +22,203 @@ ZBuffer::ZBuffer(const int width, const int height) {
         int valid_height = std::max(0, height);
         this->resize(valid_width);
         if (valid_width > 0) {
-             for (int i = 0; i < valid_width; ++i) {
+            for (int i = 0; i < valid_width; ++i) {
                 this->at(i).resize(valid_height, negInf);
             }
         }
-         std::cerr << "Warning: ZBuffer created with non-positive dimensions (" << width << "x" << height << "). Size set to " << valid_width << "x" << valid_height << "." << std::endl;
+        std::cerr << "Warning: ZBuffer created with non-positive dimensions (" << width << "x" << height << "). Size set to " << valid_width << "x" << valid_height << "." << std::endl;
         return;
     }
 
     this->resize(width);
     for (int i = 0; i < width; ++i) {
-        this->at(i).resize(height, negInf);
+        this->at(i).resize(height, negInf); // Initialize with a very small value (far away for 1/z)
     }
 }
 
-void triangulate(Figures3D &figs) {
-
-    for (auto &figure: figs) {
-        vector<Face> faces;
-
-        for (auto &face: figure.faces) {
-            auto vertexCount = face.point_indexes.size();
-
-            if (vertexCount < 3) {
-                // Invalid or a line
-                faces.push_back(face);
-            } else if (vertexCount == 3) {
-                // The face is already a triangle
-                faces.push_back(face);
-            }/* else if (vertexCount == 4) {
-                // The face is a rectangle/square => we will split it into 2 triangles
-                faces.push_back({{
-                                         face.point_indexes[0],
-                                         face.point_indexes[1],
-                                         face.point_indexes[2]
-                                 }});
-                faces.push_back({{
-                                         face.point_indexes[0],
-                                         face.point_indexes[2],
-                                         face.point_indexes[3]
-                                 }});
-            }*/ else {
-                // The face is an n-gon where n > 4. We'll split it into (n-2) triangles.
-                for (int i = 0; i < vertexCount - 2; i++) {
-                    faces.push_back({{
-                                             face.point_indexes[0],
-                                             face.point_indexes[i + 1],
-                                             face.point_indexes[i + 2]
-                                     }});
-                }
-            }
-        }
-        figure.faces = faces;
-    }
-}
-
-
-Triangles ZBuffer::doProjectTriangle(const Figures3D &figures, const double &d) {
+// Projects 3D figures to a list of 2D triangles with depth info
+Triangles ZBuffer::doProjectTriangle(const Figures3D &figures, const double &d_projection_plane) {
     Triangles triangles;
 
     for (const auto &figure : figures) {
+        if (figure.faces.empty() || figure.points.empty()) continue;
+
         for (const auto &face : figure.faces) {
-            // Points A, B, C in 3D
-            const Vector3D &A = figure.points[face.point_indexes[0]];
-            const Vector3D &B = figure.points[face.point_indexes[1]];
-            const Vector3D &C = figure.points[face.point_indexes[2]];
+            if (face.point_indexes.size() < 3) continue; // Skip lines or points, only triangles
 
-            // Project points A, B, C to 2D using the projection formula
-            Point2D projectA;
-            projectA.x = 1 * A.x / -A.z;
-            projectA.y = 1 * A.y / -A.z;
-            double z1 = -A.z;
+            // Assuming triangulation already happened, so all faces are triangles.
+            // If not, this loop needs to handle triangulation or expect only triangles.
+            // For simplicity, we assume face.point_indexes already refers to a triangle.
+            const Vector3D &P1_3D_eye = figure.points[face.point_indexes[0]];
+            const Vector3D &P2_3D_eye = figure.points[face.point_indexes[1]];
+            const Vector3D &P3_3D_eye = figure.points[face.point_indexes[2]];
 
-            Point2D projectB;
-            projectB.x = 1 * B.x / -B.z;
-            projectB.y = 1 * B.y / -B.z;
-            double z2 = -B.z;
+            // Project points (d_projection_plane is 'd' from projection formula x' = d*x_eye / -z_eye)
+            Point2D p1_2D, p2_2D, p3_2D;
+            double z1_eye, z2_eye, z3_eye; // Positive depth values
 
-            Point2D projectC;
-            projectC.x = 1 * C.x / -C.z;
-            projectC.y = 1 * C.y / -C.z;
-            double z3 = -C.z;
+            // Projection for P1
+            if (P1_3D_eye.z >= 0) { // Point at or behind eye
+                p1_2D.x = (P1_3D_eye.x > 0) ? 1e6 : -1e6; p1_2D.y = (P1_3D_eye.y > 0) ? 1e6 : -1e6;
+                z1_eye = std::numeric_limits<double>::infinity();
+            } else {
+                p1_2D.x = d_projection_plane * P1_3D_eye.x / -P1_3D_eye.z;
+                p1_2D.y = d_projection_plane * P1_3D_eye.y / -P1_3D_eye.z;
+                z1_eye = -P1_3D_eye.z;
+            }
 
-            // Add the projected 2D triangle to the collection
-            triangles.push_back({
-                projectA, projectB, projectC,
-                z1, z2, z3, figure.color
-            });
-        }
-    }
+            // Projection for P2
+            if (P2_3D_eye.z >= 0) {
+                p2_2D.x = (P2_3D_eye.x > 0) ? 1e6 : -1e6; p2_2D.y = (P2_3D_eye.y > 0) ? 1e6 : -1e6;
+                z2_eye = std::numeric_limits<double>::infinity();
+            } else {
+                p2_2D.x = d_projection_plane * P2_3D_eye.x / -P2_3D_eye.z;
+                p2_2D.y = d_projection_plane * P2_3D_eye.y / -P2_3D_eye.z;
+                z2_eye = -P2_3D_eye.z;
+            }
 
-    return triangles;
-}
+            // Projection for P3
+            if (P3_3D_eye.z >= 0) {
+                p3_2D.x = (P3_3D_eye.x > 0) ? 1e6 : -1e6; p3_2D.y = (P3_3D_eye.y > 0) ? 1e6 : -1e6;
+                z3_eye = std::numeric_limits<double>::infinity();
+            } else {
+                p3_2D.x = d_projection_plane * P3_3D_eye.x / -P3_3D_eye.z;
+                p3_2D.y = d_projection_plane * P3_3D_eye.y / -P3_3D_eye.z;
+                z3_eye = -P3_3D_eye.z;
+            }
 
-/*
-void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d) {
-    Vector3D A = Vector3D::point(triangle.p1.x, triangle.p1.y, triangle.z1);
-    Vector3D B = Vector3D::point(triangle.p2.x, triangle.p2.y, triangle.z2);
-    Vector3D C = Vector3D::point(triangle.p3.x, triangle.p3.y,  triangle.z3);
-
-    Vector3D U = B - A;
-    Vector3D V = C - A;
-    Vector3D W = Vector3D::cross(U, V);
-
-    Vector3D middel_punt = Vector3D::point(
-            A.x/3 + B.x/3 + C.x/3,
-            A.y/3 + B.y/3 + C.y/3,
-            A.z/3 + B.z/3 + C.z/3
-    );
-
-    double k = W.x + A.x + W.y + A.y + W.z + A.z;
-    double dzdx = W.x / (-d * k);
-    double dzdy = W.y / (-d * k);
-
-    int max_y = lround(std::max(std::max(A.y, B.y), C.y) - 0.5);
-    int min_y = lround(std::min(std::min(A.y, B.y), C.y) + 0.5);
-
-    for (int y = min_y; y <= max_y; y++) {
-        double AB_l = numeric_limits<double>::infinity();
-        double AB_r = -numeric_limits<double>::infinity();
-
-        double AC_l = numeric_limits<double>::infinity();
-        double AC_r = -numeric_limits<double>::infinity();
-
-        double BC_l = numeric_limits<double>::infinity();
-        double BC_r = -numeric_limits<double>::infinity();
-
-        if ((y - A.y) * (y - B.y) <= 0 and A.y != B.y) {
-            double x = B.x + (A.x - B.x) * (y - B.y) / (A.y - B.y);
-            AB_l = AB_r = x;
-        }
-
-        if ((y - A.y) * (y - C.y) <= 0 and A.y != C.y) {
-            double x = C.x + (A.x - C.x) * (y - C.y) / (A.y - C.y);
-            AC_l = AC_r = x;
-        }
-
-        if ((y - B.y) * (y - C.y) <= 0 and B.y != C.y) {
-            double x = C.x + (B.x - C.x) * (y - C.y) / (B.y - C.y);
-            BC_l = BC_r = x;
-        }
-
-        int max_x = lround(std::max(std::max(AB_r, AC_r), BC_r) - 0.5);
-        int min_x = lround(std::min(std::min(AB_l, AC_l), BC_l) + 0.5);
-
-        for (int x = min_x; x <= max_x; x++) {
-            double z = 1.0001 * middel_punt.z + (x - middel_punt.x) * dzdx + (y - middel_punt.y) * dzdy;
-
-            if (z > this->at(x)[y]) {
-            //if (z <= this->at(x)[y]) {
-                image(x, y) = {
-                    static_cast<uint8_t>(triangle.color.red * 255),
-                    static_cast<uint8_t>(triangle.color.green * 255),
-                    static_cast<uint8_t>(triangle.color.blue * 255)
-                };
-                this->at(x)[y] = z;
+            // Only add triangle if all points are in front of the eye (or implement clipping)
+            if (z1_eye != std::numeric_limits<double>::infinity() &&
+                z2_eye != std::numeric_limits<double>::infinity() &&
+                z3_eye != std::numeric_limits<double>::infinity()) {
+                triangles.push_back({
+                    p1_2D, p2_2D, p3_2D,
+                    z1_eye, z2_eye, z3_eye, figure.color
+                });
             }
         }
     }
+    return triangles;
 }
-*/
 
-void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle_details, const double &d_projection_plane_distance_unused /* This parameter is not used */) {
-    Point2D pA_screen = triangle_details.p1; // Already scaled and translated screen coordinates
-    Point2D pB_screen = triangle_details.p2;
-    Point2D pC_screen = triangle_details.p3;
 
-    // Original positive Z-depths from the eye
-    double depth_A = triangle_details.z1;
-    double depth_B = triangle_details.z2;
-    double depth_C = triangle_details.z3;
+// d_proj is the projection plane distance used in doProjectTriangle (typically 1.0)
+// It is NOT the image scaling factor 'd' from the calculate() function.
+void ZBuffer::draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d_proj_unused) {
+    // triangle.p1.x, .p1.y etc. are ALREADY scaled and translated screen coordinates.
+    // triangle.z1, .z2, .z3 are original positive eye-space depths.
 
-    // Calculate 1/depth for each vertex.
-    double inv_depth_A = (depth_A > 1e-9) ? 1.0 / depth_A : std::numeric_limits<double>::lowest();
-    double inv_depth_B = (depth_B > 1e-9) ? 1.0 / depth_B : std::numeric_limits<double>::lowest();
-    double inv_depth_C = (depth_C > 1e-9) ? 1.0 / depth_C : std::numeric_limits<double>::lowest();
+    Point2D p1_screen = triangle.p1;
+    Point2D p2_screen = triangle.p2;
+    Point2D p3_screen = triangle.p3;
 
-    // If all points are effectively at/behind camera (invalid depths), skip.
-    if (inv_depth_A == std::numeric_limits<double>::lowest() &&
-        inv_depth_B == std::numeric_limits<double>::lowest() &&
-        inv_depth_C == std::numeric_limits<double>::lowest()) {
+    double inv_z1_eye = 1.0 / triangle.z1;
+    double inv_z2_eye = 1.0 / triangle.z2;
+    double inv_z3_eye = 1.0 / triangle.z3;
+
+    // Centroid of the screen-projected triangle
+    double G_x_screen = (p1_screen.x + p2_screen.x + p3_screen.x) / 3.0;
+    double G_y_screen = (p1_screen.y + p2_screen.y + p3_screen.y) / 3.0;
+    // 1/z value at the centroid (interpolated in a perspective-correct manner)
+    double G_inv_z_eye = (inv_z1_eye + inv_z2_eye + inv_z3_eye) / 3.0;
+
+    // Vectors for calculating screen-space gradients of 1/z
+    // Using (screen_x, screen_y, 1/z_eye)
+    Vector3D vA_scr_invZ = Vector3D::point(p1_screen.x, p1_screen.y, inv_z1_eye);
+    Vector3D vB_scr_invZ = Vector3D::point(p2_screen.x, p2_screen.y, inv_z2_eye);
+    Vector3D vC_scr_invZ = Vector3D::point(p3_screen.x, p3_screen.y, inv_z3_eye);
+
+    Vector3D U_scr_invZ = vB_scr_invZ - vA_scr_invZ;
+    Vector3D V_scr_invZ = vC_scr_invZ - vA_scr_invZ;
+    Vector3D W_scr_invZ = Vector3D::cross(U_scr_invZ, V_scr_invZ); // Normal to the plane in (screen_x, screen_y, 1/z_eye) space
+
+    double dzdx_screen, dzdy_screen;
+    // W_scr_invZ.z is proportional to the signed area of the triangle on screen.
+    // If W_scr_invZ.z is zero, the triangle is degenerate (projects to a line or point).
+    if (std::abs(W_scr_invZ.z) < 1e-9) { // Threshold for degenerate triangle
+        // Handle as a line or skip. For now, skip to prevent division by zero.
+        // A more robust solution might draw the dominant edges as lines using draw_zbuf_line.
         return;
     }
 
-    // Calculate the screen-space bounding box of the triangle
-    int min_x_bb = lround(std::min({pA_screen.x, pB_screen.x, pC_screen.x}));
-    int max_x_bb = lround(std::max({pA_screen.x, pB_screen.x, pC_screen.x}));
-    int min_y_bb = lround(std::min({pA_screen.y, pB_screen.y, pC_screen.y}));
-    int max_y_bb = lround(std::max({pA_screen.y, pB_screen.y, pC_screen.y}));
+    // Gradients of 1/z_eye with respect to screen_x and screen_y
+    // Plane equation: W_scr_invZ.x * x_s + W_scr_invZ.y * y_s + W_scr_invZ.z * (1/z_eye) + D_const = 0
+    // So, d(1/z_eye)/dx_s = -W_scr_invZ.x / W_scr_invZ.z
+    // So, d(1/z_eye)/dy_s = -W_scr_invZ.y / W_scr_invZ.z
+    dzdx_screen = -W_scr_invZ.x / W_scr_invZ.z;
+    dzdy_screen = -W_scr_invZ.y / W_scr_invZ.z;
+
+    // Determine bounding box of the triangle in screen coordinates
+    // Using lround and +/- 0.5 for conservative pixel bounds (similar to your original approach)
+    long y_min_tri = lround(std::min({p1_screen.y, p2_screen.y, p3_screen.y}) + 0.5);
+    long y_max_tri = lround(std::max({p1_screen.y, p2_screen.y, p3_screen.y}) - 0.5);
+    long x_min_tri_overall = lround(std::min({p1_screen.x, p2_screen.x, p3_screen.x}) + 0.5); // For early exit
+    long x_max_tri_overall = lround(std::max({p1_screen.x, p2_screen.x, p3_screen.x}) - 0.5); // For early exit
+
+    int img_width = image.get_width();
+    int img_height = image.get_height();
 
     // Clip bounding box to image dimensions
-    min_x_bb = std::max(0, min_x_bb);
-    max_x_bb = std::min((int)image.get_width() - 1, max_x_bb);
-    min_y_bb = std::max(0, min_y_bb);
-    max_y_bb = std::min((int)image.get_height() - 1, max_y_bb);
+    y_min_tri = std::max(0L, y_min_tri);
+    y_max_tri = std::min((long)img_height - 1, y_max_tri);
+    x_min_tri_overall = std::max(0L, x_min_tri_overall);
+    x_max_tri_overall = std::min((long)img_width - 1, x_max_tri_overall);
 
-    // Denominator for barycentric coordinates (2 * area of triangle)
-    // Using pA, pB, pC for screen coordinates (triangle_details.p1 etc.)
-    double bary_denom = (pB_screen.y - pC_screen.y) * (pA_screen.x - pC_screen.x) +
-                        (pC_screen.x - pB_screen.x) * (pA_screen.y - pC_screen.y);
 
-    if (std::abs(bary_denom) < 1e-9) { // Degenerate triangle on screen
-        return;
-    }
+    // Scanline rasterization
+    for (long y_current = y_min_tri; y_current <= y_max_tri; ++y_current) {
+        // Calculate x_L and x_R for the current scanline y_current
+        // Intersect scanline y_current with triangle edges (p1p2, p2p3, p3p1)
+        double x_intersect[3];
+        int intersect_count = 0;
 
-    for (int y_pixel = min_y_bb; y_pixel <= max_y_bb; ++y_pixel) {
-        for (int x_pixel = min_x_bb; x_pixel <= max_x_bb; ++x_pixel) {
-            // Calculate barycentric coordinates for the center of the current pixel
-            // It's often fine to use (x_pixel, y_pixel) directly if vertices were rounded,
-            // but using pixel centers (x_pixel + 0.5, y_pixel + 0.5) is more accurate.
-            // Let's use integer pixel coordinates for simplicity matching the example.
-            double px_test = static_cast<double>(x_pixel); // or x_pixel + 0.5;
-            double py_test = static_cast<double>(y_pixel); // or y_pixel + 0.5;
+        // Edge p1-p2
+        if ((p1_screen.y <= y_current && p2_screen.y > y_current) || (p2_screen.y <= y_current && p1_screen.y > y_current)) {
+            if (std::abs(p2_screen.y - p1_screen.y) > 1e-9) { // Avoid division by zero for horizontal edge
+                x_intersect[intersect_count++] = p1_screen.x + (p2_screen.x - p1_screen.x) * (y_current - p1_screen.y) / (p2_screen.y - p1_screen.y);
+            }
+        }
+        // Edge p2-p3
+        if ((p2_screen.y <= y_current && p3_screen.y > y_current) || (p3_screen.y <= y_current && p2_screen.y > y_current)) {
+             if (std::abs(p3_screen.y - p2_screen.y) > 1e-9) {
+                x_intersect[intersect_count++] = p2_screen.x + (p3_screen.x - p2_screen.x) * (y_current - p2_screen.y) / (p3_screen.y - p2_screen.y);
+            }
+        }
+        // Edge p3-p1
+        if ((p3_screen.y <= y_current && p1_screen.y > y_current) || (p1_screen.y <= y_current && p3_screen.y > y_current)) {
+            if (std::abs(p1_screen.y - p3_screen.y) > 1e-9) {
+                x_intersect[intersect_count++] = p3_screen.x + (p1_screen.x - p3_screen.x) * (y_current - p3_screen.y) / (p1_screen.y - p3_screen.y);
+            }
+        }
 
-            double lambda1 = ((pB_screen.y - pC_screen.y) * (px_test - pC_screen.x) +
-                              (pC_screen.x - pB_screen.x) * (py_test - pC_screen.y)) / bary_denom;
-            double lambda2 = ((pC_screen.y - pA_screen.y) * (px_test - pC_screen.x) +
-                              (pA_screen.x - pC_screen.x) * (py_test - pC_screen.y)) / bary_denom;
-            double lambda3 = 1.0 - lambda1 - lambda2;
+        if (intersect_count < 2) continue; // Not a valid span for this scanline
 
-            // Check if pixel is inside or on the edge of the triangle
-            // A small epsilon can help with floating point inaccuracies at edges
-            // double epsilon = 1e-7; // Adjust if needed
-            // if (lambda1 >= -epsilon && lambda1 <= 1.0 + epsilon &&
-            //     lambda2 >= -epsilon && lambda2 <= 1.0 + epsilon &&
-            //     lambda3 >= -epsilon && lambda3 <= 1.0 + epsilon)
-            // A simpler check (pixel center strictly inside or on edge):
-            if (lambda1 >= 0.0 && lambda1 <= 1.0 &&
-                lambda2 >= 0.0 && lambda2 <= 1.0 &&
-                lambda3 >= 0.0 && lambda3 <= 1.0)
-            {
-                // Interpolate 1/depth using barycentric coordinates
-                double current_inv_depth = inv_depth_A * lambda1 +
-                                           inv_depth_B * lambda2 +
-                                           inv_depth_C * lambda3;
+        long x_L = lround(std::min(x_intersect[0], x_intersect[1]) + 0.5);
+        long x_R = lround(std::max(x_intersect[0], x_intersect[1]) - 0.5);
+        if (intersect_count == 3) { // Should not happen with convex triangles unless an edge is horizontal
+            x_L = lround(std::min({x_intersect[0], x_intersect[1], x_intersect[2]}) + 0.5);
+            x_R = lround(std::max({x_intersect[0], x_intersect[1], x_intersect[2]}) - 0.5);
+        }
 
-                // Optional: Small bias for Z-fighting (consistent with previous attempt)
-                // current_inv_depth *= 1.0001; // Re-evaluate if this is needed/helpful
 
-                // Z-Buffer check: larger 1/depth value means closer.
-                // this->at(x_pixel)[y_pixel] is ZBuffer's internal storage.
-                if (x_pixel >= 0 && x_pixel < image.get_width() && y_pixel >=0 && y_pixel < image.get_height()){ // Redundant due to BB clip, but safe
-                    if (current_inv_depth > this->at(x_pixel)[y_pixel]) {
-                        image(x_pixel, y_pixel) = img::Color(
-                            static_cast<uint8_t>(round(triangle_details.color.red * 255)),
-                            static_cast<uint8_t>(round(triangle_details.color.green * 255)),
-                            static_cast<uint8_t>(round(triangle_details.color.blue * 255))
-                        );
-                        this->at(x_pixel)[y_pixel] = current_inv_depth;
-                    }
+        // Clip x_L and x_R to image bounds
+        x_L = std::max(x_min_tri_overall, x_L); // Use overall min/max for x to avoid going too far out
+        x_R = std::min(x_max_tri_overall, x_R);
+
+
+        for (long x_current = x_L; x_current <= x_R; ++x_current) {
+            // Interpolate 1/z for the current pixel (x_current, y_current)
+            double current_inv_z_eye = G_inv_z_eye + (x_current - G_x_screen) * dzdx_screen + (y_current - G_y_screen) * dzdy_screen;
+
+            // Z-buffer stores 1/z values; larger 1/z means closer
+            if (x_current >=0 && x_current < img_width && y_current >=0 && y_current < img_height) { // Double check bounds before access
+                if (current_inv_z_eye > this->at(x_current)[y_current]) {
+                    this->at(x_current)[y_current] = current_inv_z_eye;
+                    image(x_current, y_current) = img::Color(
+                        static_cast<uint8_t>(round(triangle.color.red * 255)),
+                        static_cast<uint8_t>(round(triangle.color.green * 255)),
+                        static_cast<uint8_t>(round(triangle.color.blue * 255))
+                    );
                 }
             }
         }
@@ -287,29 +235,25 @@ void ZBuffer::draw_zbuf_line(img::EasyImage &image, Line2D line) {
     double x1_d = line.p2.x;
     double y1_d = line.p2.y;
 
-    // Handle potential infinite Z values
-    double inv_z0 = (line.z1 > 0 && !std::isinf(line.z1)) ? 1.0 / line.z1 : std::numeric_limits<double>::lowest();
-    double inv_z1 = (line.z2 > 0 && !std::isinf(line.z2)) ? 1.0 / line.z2 : std::numeric_limits<double>::lowest();
+    // Handle potential infinite Z values and ensure z > 0 for 1/z
+    double inv_z0 = (line.z1 > 1e-9 && !std::isinf(line.z1)) ? 1.0 / line.z1 : std::numeric_limits<double>::lowest();
+    double inv_z1 = (line.z2 > 1e-9 && !std::isinf(line.z2)) ? 1.0 / line.z2 : std::numeric_limits<double>::lowest();
+
 
     // Convert color
     img::Color color = img::Color(static_cast<uint8_t>(round(line.color.red * 255)),
                                   static_cast<uint8_t>(round(line.color.green * 255)),
                                   static_cast<uint8_t>(round(line.color.blue * 255)));
 
-    // Get integer coordinates by rounding for pixel access and range calculations
-    // *** CHANGED lround to round ***
     int x0_i = round(x0_d);
     int y0_i = round(y0_d);
     int x1_i = round(x1_d);
     int y1_i = round(y1_d);
 
-    // Ensure line goes left-to-right or bottom-to-top
     if ((x0_i > x1_i) || ((x0_i == x1_i) && (y0_i > y1_i))) {
         std::swap(x0_d, x1_d);
         std::swap(y0_d, y1_d);
         std::swap(inv_z0, inv_z1);
-        // Update integer versions after swap
-        // *** CHANGED lround to round ***
         x0_i = round(x0_d);
         y0_i = round(y0_d);
         x1_i = round(x1_d);
@@ -319,23 +263,21 @@ void ZBuffer::draw_zbuf_line(img::EasyImage &image, Line2D line) {
     int imgWidth = image.get_width();
     int imgHeight = image.get_height();
 
-    // Calculate integer differences
     int dx_i = x1_i - x0_i;
     int dy_i = y1_i - y0_i;
 
-    // --- Rasterization Logic ---
-    if (dx_i == 0) { // Vertical line
-        if (dy_i == 0) { // Single point
+    if (dx_i == 0) {
+        if (dy_i == 0) {
              if (x0_i >= 0 && x0_i < imgWidth && y0_i >= 0 && y0_i < imgHeight) {
                  if (inv_z0 > this->at(x0_i)[y0_i]) {
                      image(x0_i, y0_i) = color;
                      this->at(x0_i)[y0_i] = inv_z0;
                  }
              }
-        } else { // dy_i > 0
+        } else {
             for (int y = y0_i; y <= y1_i; ++y) {
                  if (x0_i >= 0 && x0_i < imgWidth && y >= 0 && y < imgHeight) {
-                    double t = (dy_i == 0) ? 0.0 : (double)(y - y0_i) / dy_i;
+                    double t = (dy_i == 0) ? 0.0 : static_cast<double>(y - y0_i) / dy_i;
                     double current_inv_z = inv_z0 + t * (inv_z1 - inv_z0);
                     if (current_inv_z > this->at(x0_i)[y]) {
                          image(x0_i, y) = color;
@@ -344,10 +286,10 @@ void ZBuffer::draw_zbuf_line(img::EasyImage &image, Line2D line) {
                 }
             }
         }
-    } else if (dy_i == 0) { // Horizontal line (dx_i > 0)
+    } else if (dy_i == 0) {
         for (int x = x0_i; x <= x1_i; ++x) {
             if (x >= 0 && x < imgWidth && y0_i >= 0 && y0_i < imgHeight) {
-                double t = (dx_i == 0) ? 0.0 : (double)(x - x0_i) / dx_i;
+                double t = (dx_i == 0) ? 0.0 : static_cast<double>(x - x0_i) / dx_i;
                 double current_inv_z = inv_z0 + t * (inv_z1 - inv_z0);
                 if (current_inv_z > this->at(x)[y0_i]) {
                      image(x, y0_i) = color;
@@ -355,15 +297,14 @@ void ZBuffer::draw_zbuf_line(img::EasyImage &image, Line2D line) {
                 }
             }
         }
-    } else { // Diagonal line
-        double m = (y1_d - y0_d) / (x1_d - x0_d); // Use double slope
+    } else {
+        double m = static_cast<double>(dy_i) / dx_i; // Use integer slope for this rasterization part
 
-        if (-1.0 <= m && m <= 1.0) { // More horizontal
+        if (-1.0 <= m && m <= 1.0) {
             for (int x = x0_i; x <= x1_i; ++x) {
-                // *** CHANGED lround to round ***
-                int y = round(y0_d + m * (x - x0_i));
+                int y = round(y0_d + m * (x - x0_i)); // Use original doubles for y calculation for precision
                  if (x >= 0 && x < imgWidth && y >= 0 && y < imgHeight) {
-                    double t = (dx_i == 0) ? 0.0 : (double)(x - x0_i) / dx_i;
+                    double t = (dx_i == 0) ? 0.5 : static_cast<double>(x - x0_i) / dx_i; // t based on dominant axis
                     double current_inv_z = inv_z0 + t * (inv_z1 - inv_z0);
                      if (current_inv_z > this->at(x)[y]) {
                          image(x, y) = color;
@@ -371,32 +312,31 @@ void ZBuffer::draw_zbuf_line(img::EasyImage &image, Line2D line) {
                      }
                 }
             }
-        } else if (m > 1.0) { // Steep positive slope
-            for (int y = y0_i; y <= y1_i; ++y) {
-                // *** CHANGED lround to round ***
-                int x = round(x0_d + (y - y0_i) / m);
+        } else { // More vertical
+            // Ensure y iterates in the correct direction
+            int start_y = y0_i, end_y = y1_i;
+            double start_x_d = x0_d;
+            if (y0_i > y1_i) { // if steep and going "up" visually (y decreases)
+                 std::swap(start_y, end_y);
+                 // We already swapped x0_d,y0_d,inv_z0 with x1_d,y1_d,inv_z1 if original x0_i > x1_i or (x0_i==x1_i && y0_i > y1_i)
+                 // For this branch (m > 1 or m < -1), the primary iteration is over y.
+                 // The initial swap logic prioritizes x. If steep, y changes more.
+                 // Let's re-ensure y0_d is less than y1_d for this loop structure if m is positive.
+                 // Or iterate from y0_d towards y1_d regardless.
+            }
+
+            for (int y = y0_i; ; (y0_i <= y1_i ? y++ : y--)) {
+                int x = round(x0_d + (y - y0_d) / m); // Use original doubles for x calculation
                  if (x >= 0 && x < imgWidth && y >= 0 && y < imgHeight) {
-                    double t = (dy_i == 0) ? 0.0 : (double)(y - y0_i) / dy_i;
+                    double t = (dy_i == 0) ? 0.5 : static_cast<double>(y - y0_i) / dy_i; // t based on y-axis
                     double current_inv_z = inv_z0 + t * (inv_z1 - inv_z0);
                      if (current_inv_z > this->at(x)[y]) {
                          image(x, y) = color;
                          this->at(x)[y] = current_inv_z;
                      }
                 }
+                if (y == y1_i) break;
             }
-        } else { // m < -1.0, Steep negative slope
-             for (int y = y0_i; y >= y1_i; --y) {
-                 // *** CHANGED lround to round ***
-                 int x = round(x0_d + (y - y0_i) / m);
-                 if (x >= 0 && x < imgWidth && y >= 0 && y < imgHeight) {
-                     double t = (dy_i == 0) ? 0.0 : (double)(y - y0_i) / dy_i;
-                     double current_inv_z = inv_z0 + t * (inv_z1 - inv_z0);
-                     if (current_inv_z > this->at(x)[y]) {
-                          image(x, y) = color;
-                          this->at(x)[y] = current_inv_z;
-                     }
-                 }
-             }
         }
     }
 }

@@ -24,8 +24,6 @@ set(engine_sources
 		Line2D.h
 		lineDrawer.cpp
 		Figure.cpp
-		stb_image.h
-		ImageComparator.cpp
 		Transformations.cpp
 		Projection.cpp
 		lijntekeningen3D.cpp

@@ -115,31 +115,59 @@ Figure Figure::createOctahedron() {
 
 Figure Figure::createIcosahedron() {
     Figure icosahedron;
-    const double t = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
 
-    // Define vertices
-    icosahedron.points = {
-        Vector3D::point(-1,  t,  0), Vector3D::point( 1,  t,  0), Vector3D::point(-1, -t,  0), Vector3D::point( 1, -t,  0),
-        Vector3D::point( 0, -1,  t), Vector3D::point( 0,  1,  t), Vector3D::point( 0, -1, -t), Vector3D::point( 0,  1, -t),
-        Vector3D::point( t,  0, -1), Vector3D::point( t,  0,  1), Vector3D::point(-t,  0, -1), Vector3D::point(-t,  0,  1)
-    };
+    // default color, can be overridden later
+    icosahedron.color = Color(0.5, 0.5, 1.0);
 
-    // Normalize points to be on a unit sphere (optional, but common)
+    icosahedron.points.push_back(Vector3D::point(0, 0, std::sqrt(5.0) / 2.0));
+
+    for (int i = 0; i < 5; ++i) {
+        icosahedron.points.push_back(Vector3D::point(
+            std::cos(i * 2.0 * Pi / 5.0),
+            std::sin(i * 2.0 * Pi / 5.0),
+            0.5
+        ));
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        icosahedron.points.push_back(Vector3D::point(
+            std::cos(Pi / 5.0 + i * 2.0 * Pi / 5.0),
+            std::sin(Pi / 5.0 + i * 2.0 * Pi / 5.0),
+            -0.5
+        ));
+    }
+
+    icosahedron.points.push_back(Vector3D::point(0, 0, -std::sqrt(5.0) / 2.0));
+
+    icosahedron.faces.push_back(Face({{0, 1, 2}}));
+    icosahedron.faces.push_back(Face({{0, 2, 3}}));
+    icosahedron.faces.push_back(Face({{0, 3, 4}}));
+    icosahedron.faces.push_back(Face({{0, 4, 5}}));
+    icosahedron.faces.push_back(Face({{0, 5, 1}}));
+
+    icosahedron.faces.push_back(Face({{1, 6, 2}}));
+    icosahedron.faces.push_back(Face({{2, 6, 7}}));
+    icosahedron.faces.push_back(Face({{2, 7, 3}}));
+    icosahedron.faces.push_back(Face({{3, 7, 8}}));
+    icosahedron.faces.push_back(Face({{3, 8, 4}}));
+    icosahedron.faces.push_back(Face({{4, 8, 9}}));
+    icosahedron.faces.push_back(Face({{4, 9, 5}}));
+    icosahedron.faces.push_back(Face({{5, 9, 10}}));
+    icosahedron.faces.push_back(Face({{5, 10, 1}}));
+    icosahedron.faces.push_back(Face({{1, 10, 6}}));
+
+    icosahedron.faces.push_back(Face({{11, 7, 6}}));
+    icosahedron.faces.push_back(Face({{11, 8, 7}}));
+    icosahedron.faces.push_back(Face({{11, 9, 8}}));
+    icosahedron.faces.push_back(Face({{11, 10, 9}}));
+    icosahedron.faces.push_back(Face({{11, 6, 10}}));
+
     for(auto& p : icosahedron.points) {
         double len = p.length();
-        if (len > 1e-9) { // Avoid division by zero
+        if (len > 1e-9) {
              p.x /= len; p.y /= len; p.z /= len;
         }
     }
-
-
-    // Define faces (indices based on the points above, ensuring CCW winding from outside)
-    icosahedron.faces = {
-        Face{{0, 11, 5}}, Face{{0, 5, 1}}, Face{{0, 1, 7}}, Face{{0, 7, 10}}, Face{{0, 10, 11}},
-        Face{{1, 5, 9}}, Face{{5, 11, 4}}, Face{{11, 10, 2}}, Face{{10, 7, 6}}, Face{{7, 1, 8}},
-        Face{{3, 9, 4}}, Face{{3, 4, 2}}, Face{{3, 2, 6}}, Face{{3, 6, 8}}, Face{{3, 8, 9}},
-        Face{{4, 9, 5}}, Face{{2, 4, 11}}, Face{{6, 2, 10}}, Face{{8, 6, 7}}, Face{{9, 8, 1}}
-    };
 
     return icosahedron;
 }
@@ -147,57 +175,63 @@ Figure Figure::createIcosahedron() {
 
 Figure Figure::createDodecahedron() {
     Figure dodecahedron;
-    const double t = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
-    const double t_inv = 1.0 / t;
 
-    // Define vertices
-     dodecahedron.points = {
-        // Cube corners
-        Vector3D::point(-1, -1, -1), Vector3D::point( 1, -1, -1), Vector3D::point( 1,  1, -1), Vector3D::point(-1,  1, -1),
-        Vector3D::point(-1, -1,  1), Vector3D::point( 1, -1,  1), Vector3D::point( 1,  1,  1), Vector3D::point(-1,  1,  1),
-        // Points on axes planes
-        Vector3D::point(0, -t_inv, -t), Vector3D::point(0,  t_inv, -t), Vector3D::point(0, -t_inv,  t), Vector3D::point(0,  t_inv,  t),
-        Vector3D::point(-t, 0, -t_inv), Vector3D::point( t, 0, -t_inv), Vector3D::point(-t, 0,  t_inv), Vector3D::point( t, 0,  t_inv),
-        Vector3D::point(-t_inv, -t, 0), Vector3D::point( t_inv, -t, 0), Vector3D::point(-t_inv,  t, 0), Vector3D::point( t_inv,  t, 0)
-     };
+    // default color, can be overridden later
+    dodecahedron.color = Color(0.9, 0.7, 0.3);
 
-      // Normalize points (optional)
-      for(auto& p : dodecahedron.points) {
-        double len = p.length();
-         if (len > 1e-9) { p.x /= len; p.y /= len; p.z /= len; }
-      }
+    Figure icosahedron = createIcosahedron();
 
-     // Define faces (pentagons, indices based on points above, CCW winding)
-     dodecahedron.faces = {
-        Face{{ 2,  9,  8,  1, 13}}, Face{{ 1, 17, 16,  0,  8}}, Face{{ 0, 12, 14,  4, 16}},
-        Face{{ 4, 10, 11,  5, 14}}, Face{{ 5, 15,  9,  2, 11}}, Face{{ 3, 18, 19,  2,  9}},
-        Face{{ 3, 12,  0, 16, 18}}, Face{{ 7, 14,  4, 10, 18}}, Face{{ 6, 11,  5, 15, 10}},
-        Face{{ 6, 19,  3, 18, 10}}, Face{{ 7, 15,  6, 19, 18}}, Face{{ 7, 17,  1, 13, 15}} // Check winding/indices carefully
-     };
-     // Note: Dodecahedron faces are hard to get right. A common method is dual of icosahedron.
-     // Using the icosahedron dual method (as in friend's code) might be simpler:
-     /*
-     Figure icosahedron = createIcosahedron();
-     for (const auto& face : icosahedron.faces) {
-         Vector3D p1 = icosahedron.points[face.point_indexes[0]];
-         Vector3D p2 = icosahedron.points[face.point_indexes[1]];
-         Vector3D p3 = icosahedron.points[face.point_indexes[2]];
-         Vector3D centroid = (p1 + p2 + p3) / 3.0; // Using Vector3D operator overloading assumed
-         // Normalize the centroid to project onto sphere
-         double len = centroid.length();
-         if (len > 1e-9) { centroid = centroid / len; }
-         dodecahedron.points.push_back(centroid);
-     }
-     // Define faces based on adjacency of icosahedron faces (complex)
-     // Friend's code hardcodes indices assuming specific icosahedron face order.
-     // If using friend's indices, ensure the icosahedron generation is identical.
-     dodecahedron.faces = {
-        Face{{ 0,  1,  2,  3,  4}}, Face{{ 0,  5,  6,  7,  1}}, Face{{ 1,  7,  8,  9,  2}},
-        Face{{ 2,  9, 10, 11,  3}}, Face{{ 3, 11, 12, 13,  4}}, Face{{ 4, 13, 14,  5,  0}},
-        Face{{19, 18, 17, 16, 15}}, Face{{19, 14, 13, 12, 18}}, Face{{18, 12, 11, 10, 17}},
-        Face{{17, 10,  9,  8, 16}}, Face{{16,  8,  7,  6, 15}}, Face{{15,  6,  5, 14, 19}}
-     };
-     */
+    if (icosahedron.points.empty() || icosahedron.faces.empty()) {
+        std::cerr << "Error: Base icosahedron for dodecahedron generation is empty." << std::endl;
+        return dodecahedron;
+    }
+    if (icosahedron.faces.size() != 20) {
+        std::cerr << "Error: Base icosahedron does not have 20 faces for dodecahedron generation." << std::endl;
+        return dodecahedron;
+    }
+
+    dodecahedron.points.clear();
+    for (const auto& ico_face : icosahedron.faces) {
+        if (ico_face.point_indexes.size() == 3) {
+            const Vector3D& p1_ico = icosahedron.points[ico_face.point_indexes[0]];
+            const Vector3D& p2_ico = icosahedron.points[ico_face.point_indexes[1]];
+            const Vector3D& p3_ico = icosahedron.points[ico_face.point_indexes[2]];
+
+            Vector3D centroid = (p1_ico + p2_ico + p3_ico) / 3.0;
+
+            double len = centroid.length();
+            if (len > 1e-9) {
+                centroid.x /= len;
+                centroid.y /= len;
+                centroid.z /= len;
+            }
+            dodecahedron.points.push_back(centroid);
+        } else {
+            std::cerr << "Warning: Icosahedron face encountered that is not a triangle during dodecahedron generation." << std::endl;
+        }
+    }
+
+    if (dodecahedron.points.size() != 20) {
+        std::cerr << "Error: Dodecahedron vertex generation resulted in " << dodecahedron.points.size() << " points, expected 20." << std::endl;
+        return Figure();
+    }
+
+    dodecahedron.faces = {
+        Face({{0, 1, 2, 3, 4}}),
+        Face({{0, 5, 6, 7, 1}}),
+        Face({{1, 7, 8, 9, 2}}),
+        Face({{2, 9, 10, 11, 3}}),
+        Face({{3, 11, 12, 13, 4}}),
+        Face({{4, 13, 14, 5, 0}}),
+
+        Face({{19, 18, 17, 16, 15}}),
+        Face({{19, 14, 13, 12, 18}}),
+        Face({{18, 12, 11, 10, 17}}),
+        Face({{17, 10, 9, 8, 16}}),
+        Face({{16, 8, 7, 6, 15}}),
+        Face({{15, 6, 5, 14, 19}})
+    };
+
     return dodecahedron;
 }
 
