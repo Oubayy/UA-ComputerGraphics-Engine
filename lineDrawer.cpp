@@ -67,12 +67,15 @@ map<string, double> calculateMinMax(const Lines2D &lines) {
 }
 
 std::map<std::string, double> calculateParametersStrict(const std::map<std::string, double>& minMax, const int size) {
+    //std::cout << "--- calculateParametersStrict ---" << std::endl; // Marker
     std::map<std::string, double> resultaten = minMax; // Copy min/max values
 
     double xmin = minMax.at("xmin");
     double xmax = minMax.at("xmax");
     double ymin = minMax.at("ymin");
     double ymax = minMax.at("ymax");
+
+    //std::cout << "Input minMax: xmin=" << xmin << ", xmax=" << xmax << ", ymin=" << ymin << ", ymax=" << ymax << std::endl;
 
     double Xrange = std::abs(xmax - xmin);
     double Yrange = std::abs(ymax - ymin);
@@ -84,36 +87,45 @@ std::map<std::string, double> calculateParametersStrict(const std::map<std::stri
 
     resultaten["Xrange"] = Xrange;
     resultaten["Yrange"] = Yrange;
+    //std::cout << "Calculated Xrange=" << Xrange << ", Yrange=" << Yrange << std::endl;
+
 
     // Calculate image dimensions as INTEGERS first, using truncation (implicit cast)
     int safeSize = std::max(1, size);
-    int imageX = static_cast<int>(static_cast<double>(safeSize) * (Xrange / std::max(Xrange, Yrange)));
-    int imageY = static_cast<int>(static_cast<double>(safeSize) * (Yrange / std::max(Xrange, Yrange)));
+    int imageX_calc = static_cast<int>(static_cast<double>(safeSize) * (Xrange / std::max(Xrange, Yrange)));
+    int imageY_calc = static_cast<int>(static_cast<double>(safeSize) * (Yrange / std::max(Xrange, Yrange)));
 
     // Ensure minimum size of 1x1
-    imageX = std::max(1, imageX);
-    imageY = std::max(1, imageY);
+    imageX_calc = std::max(1, imageX_calc);
+    imageY_calc = std::max(1, imageY_calc);
+
+    //std::cout << "Calculated canvas (before storing in map): imageX_calc=" << imageX_calc << ", imageY_calc=" << imageY_calc << std::endl;
 
     // Store the INTEGER dimensions (cast to double for map storage if needed, but track the int source)
-    resultaten["imageX"] = static_cast<double>(imageX);
-    resultaten["imageY"] = static_cast<double>(imageY);
+    resultaten["imageX"] = static_cast<double>(imageX_calc);
+    resultaten["imageY"] = static_cast<double>(imageY_calc);
 
     // Calculate scale factor 'd' using the INTEGER image width and Xrange
-    // Cast imageX to double for the division
-    double d = 0.95 * (static_cast<double>(imageX) / Xrange);
-    resultaten["d"] = d;
+    // Cast imageX_calc to double for the division
+    double d_2D_scaling = 0.95 * (static_cast<double>(imageX_calc) / Xrange);
+    resultaten["d"] = d_2D_scaling;
+    //std::cout << "Calculated 2D scaling factor d=" << d_2D_scaling << std::endl;
+
 
     // Calculate center of drawing in original coordinates, scaled by 'd'
-    double DCx = d * (xmin + xmax) / 2.0;
-    double DCy = d * (ymin + ymax) / 2.0;
+    double DCx = d_2D_scaling * (xmin + xmax) / 2.0;
+    double DCy = d_2D_scaling * (ymin + ymax) / 2.0;
     resultaten["DCx"] = DCx;
     resultaten["DCy"] = DCy;
+    //std::cout << "Scaled drawing center DCx=" << DCx << ", DCy=" << DCy << std::endl;
 
     // Calculate translation needed using INTEGER image dimensions (cast to double)
-    double dx = (static_cast<double>(imageX) / 2.0) - DCx;
-    double dy = (static_cast<double>(imageY) / 2.0) - DCy;
-    resultaten["dx"] = dx;
-    resultaten["dy"] = dy;
+    double dx_trans = (static_cast<double>(imageX_calc) / 2.0) - DCx;
+    double dy_trans = (static_cast<double>(imageY_calc) / 2.0) - DCy;
+    resultaten["dx"] = dx_trans;
+    resultaten["dy"] = dy_trans;
+    //std::cout << "Calculated 2D translation dx=" << dx_trans << ", dy=" << dy_trans << std::endl;
+    //std::cout << "--- End calculateParametersStrict ---" << std::endl;
 
     return resultaten;
 }
@@ -131,33 +143,29 @@ std::map<std::string, double> calculate(const Triangles &triangles, const int si
 }
 
 
-// *** MODIFIED draw2DLines ***
-// Uses parameters from calculateParametersStrict
 img::EasyImage draw2DLines(Lines2D &lines, int size, const Color &backgroundColor) {
-
+    //std::cout << "--- draw2DLines ---" << std::endl; // Marker
     auto resultaten = calculate(lines, size); // Uses calculateParametersStrict internally
 
-    // Get the dimensions calculated as INT (but stored as double in map)
-    // Cast them back to int for image creation. Should be safe as they originated from int.
     int finalImageWidth = static_cast<int>(resultaten.at("imageX"));
     int finalImageHeight = static_cast<int>(resultaten.at("imageY"));
+    //std::cout << "Final canvas size for EasyImage: width=" << finalImageWidth << ", height=" << finalImageHeight << std::endl;
+
 
     // Double check dimensions are valid (should be >= 1 due to logic in calculateParametersStrict)
     if (finalImageWidth <= 0 || finalImageHeight <= 0) {
-         // This case should ideally not happen now, but keep as fallback
          std::cerr << "Warning: Calculated image dimensions are invalid (" << finalImageWidth << "x" << finalImageHeight << "). Using default size." << std::endl;
-         finalImageWidth = std::max(1, size); // Use original size if calculated is invalid
+         finalImageWidth = std::max(1, size);
          finalImageHeight = std::max(1, size);
     }
 
-    // Create the image using the final integer dimensions
     img::EasyImage image(finalImageWidth, finalImageHeight, img::Color(backgroundColor.red * 255, backgroundColor.green * 255, backgroundColor.blue * 255));
 
     if (lines.empty()) {
-        return image; // Return the blank image
+        //std::cout << "--- End draw2DLines (empty lines) ---" << std::endl;
+        return image;
     }
 
-    // Get the calculated double scale and translation factors
     double d = resultaten.at("d");
     double dx = resultaten.at("dx");
     double dy = resultaten.at("dy");
@@ -171,7 +179,12 @@ img::EasyImage draw2DLines(Lines2D &lines, int size, const Color &backgroundColo
     }
 
     // Draw the transformed lines onto the image using std::round()
+    //std::cout << "--- Drawing Scaled Lines ---" << std::endl;
     for (const auto &line : lines) {
+
+        //std::cout << "Drawing line from (" << std::round(line.p1.x) << "," << std::round(line.p1.y)
+        //          << ") to (" << std::round(line.p2.x) << "," << std::round(line.p2.y) << ")" << std::endl;
+
         img::Color drawColor(
             static_cast<uint8_t>(std::round(line.color.red * 255)),
             static_cast<uint8_t>(std::round(line.color.green * 255)),
@@ -183,9 +196,11 @@ img::EasyImage draw2DLines(Lines2D &lines, int size, const Color &backgroundColo
             drawColor
         );
     }
-
+    //std::cout << "--- Finished Drawing Scaled Lines ---" << std::endl;
+    //std::cout << "--- End draw2DLines ---" << std::endl;
     return image;
 }
+
 // Draw L-System (Keep previous version - likely okay)
 Lines2D drawLSystem(const LParser::LSystem2D &l_system, const Color &lineColor) {
     Lines2D lines;
