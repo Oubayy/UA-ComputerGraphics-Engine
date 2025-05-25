@@ -7,7 +7,7 @@
 #include "l_parser.h"
 #include "ini_configuration.h"
 #include <map>
-#include <vector>
+#include "Light.h"
 #include <string>
 
 /**
@@ -51,5 +51,11 @@ Lines2D drawLSystem(const LParser::LSystem2D &l_system, const Color &lineColor);
  */
 Figures3D generateFigures(const ini::Configuration &configuration);
 
+/**
+ * Genereert een lijst van lichtbronnen op basis van de configuratie.
+ * @param configuration De configuratie.
+ * @return Een lijst van pointers naar Light objecten.
+ */
+Lights3D generateLights(const ini::Configuration &configuration); // <<<<<<< ADD THIS DECLARATION
 
 #endif // LINEDRAWER_H

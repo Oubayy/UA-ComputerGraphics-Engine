@@ -1,109 +1,94 @@
 #include "draw_triangulated_wireframes.h"
 #include "easy_image.h"
-#include "ZBuffer.h"
-#include "vector3d.h"
-#include "Line2D.h"
+#include "ZBuffer.h"         // Includes Light.h, Figure.h, vector3d.h, Line2D.h
 #include "Projection.h"
-#include "Figure.h"
-#include "easy_image.h"
 #include "ini_configuration.h"
-#include "lineDrawer.h"
+#include "lineDrawer.h"      // For generateFigures, calculate, and generateLights (declaration)
 #include "Transformations.h"
-#include "Projection.h"
-
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
 #include <map>
+#include <vector> // For std::vector<Face>
+
+// Assuming generateLights is in lineDrawer.cpp and its declaration is visible
+
+// If generateLights is defined in lineDrawer.cpp, add its declaration to lineDrawer.h:
+// Lights3D generateLights(const ini::Configuration &configuration);
 
 img::EasyImage draw_triangulated_wireframes(const ini::Configuration &configuration) {
     int size = configuration["General"]["size"].as_int_or_die();
-    if (size <= 0) {
-        throw std::runtime_error("Image size must be greater than 0.");
-    }
+    if (size <= 0) throw std::runtime_error("Image size must be > 0.");
 
-    ini::DoubleTuple bgColor = configuration["General"]["backgroundcolor"].as_double_tuple_or_die();
+    ini::DoubleTuple bgColorTuple = configuration["General"]["backgroundcolor"].as_double_tuple_or_die();
+    Color backgroundColor(bgColorTuple[0], bgColorTuple[1], bgColorTuple[2]);
+
     ini::DoubleTuple eyeCoords = configuration["General"]["eye"].as_double_tuple_or_die();
-    Vector3D eye = Vector3D::point(eyeCoords[0], eyeCoords[1], eyeCoords[2]);
+    Vector3D eyePoint = Vector3D::point(eyeCoords[0], eyeCoords[1], eyeCoords[2]);
+    Vector3D eyePositionInEyeSpace = Vector3D::point(0,0,0);
 
     Figures3D figures = generateFigures(configuration);
 
-    // Triangulate all faces of all figures
     for (Figure &figure : figures) {
-        std::vector<Face> new_faces;
+        if (figure.faces.empty()) continue;
+        std::vector<Face> new_triangulated_faces;
         for (const Face &face : figure.faces) {
-            for (size_t i = 1; i < face.point_indexes.size() - 1; ++i) {
-                Face triangle;
-                triangle.point_indexes.push_back(face.point_indexes[0]);
-                triangle.point_indexes.push_back(face.point_indexes[i]);
-                triangle.point_indexes.push_back(face.point_indexes[i + 1]);
-
-                /*std::cout  << "Figure color: "
-                        << figure.color.red << ", "
-                        << figure.color.green << ", "
-                        << figure.color.blue << std::endl;*/
-
-
-                // triangle.color = face.color; // (Face has no color)
-                new_faces.push_back(triangle);
+            if (face.point_indexes.size() >= 3) {
+                for (size_t i = 1; i < face.point_indexes.size() - 1; ++i) {
+                    new_triangulated_faces.push_back(Face{{face.point_indexes[0], face.point_indexes[i], face.point_indexes[i + 1]}});
+                }
             }
         }
-        figure.faces = std::move(new_faces);
-
-        // Make sure color isn't getting lost
-        if (figure.color.red == 0 && figure.color.green == 0 && figure.color.blue == 0) {
-            std::cerr << "Warning: figure has no color!" << std::endl;
-            figure.color = {1.0, 0.0, 0.0};
-        }
+        figure.faces = std::move(new_triangulated_faces);
     }
 
-
-
-    // Apply eye transformation
-    Matrix eyeTransform = eyePointTrans(eye);
+    Matrix eyeTransform = eyePointTrans(eyePoint);
     applyTransformation(figures, eyeTransform);
 
-    Triangles triangles = ZBuffer::doProjectTriangle(figures, 1);
+    Lights3D lights_list;
+    std::string type = configuration["General"]["type"].as_string_or_die();
 
-    std::map<std::string, double> resultaten = calculate(triangles, size);
-    int imageX = lround(resultaten["imageX"]);
-    int imageY = lround(resultaten["imageY"]);
-
-    img::EasyImage image(imageX, imageY, img::Color(
-        (int)(bgColor[0] * 255),
-        (int)(bgColor[1] * 255),
-        (int)(bgColor[2] * 255)
-    ));
-
-    ZBuffer zbuffer(imageX, imageY);
-
-    double d = resultaten["d"];
-    double dx = resultaten["dx"];
-    double dy = resultaten["dy"];
-
-    for (auto &triangle : triangles) {
-        triangle.p1.x = triangle.p1.x * d + dx;
-        triangle.p1.y = triangle.p1.y * d + dy;
-
-        triangle.p2.x = triangle.p2.x * d + dx;
-        triangle.p2.y = triangle.p2.y * d + dy;
-
-        triangle.p3.x = triangle.p3.x * d + dx;
-        triangle.p3.y = triangle.p3.y * d + dy;
-
-        /*
-        std::cout << "Triangle: ("
-          << triangle.p1.x << "," << triangle.p1.y << ") -> ("
-          << triangle.p2.x << "," << triangle.p2.y << ") -> ("
-          << triangle.p3.x << "," << triangle.p3.y << ") | Color: ("
-          << triangle.color.red << ", "
-          << triangle.color.green << ", "
-          << triangle.color.blue << ")\n";*/
-
-        zbuffer.draw_zbuf_triangle(image, triangle, 1);
+    if (type == "LightedZBuffering") {
+        lights_list = generateLights(configuration);
+    } else {
+        DirectionalLight* defaultLight = new DirectionalLight();
+        defaultLight->ambientLight = Color(1.0, 1.0, 1.0);
+        lights_list.push_back(defaultLight);
     }
 
-    //std::cout << "Finished drawing, image size: " << image.get_width() << "x" << image.get_height() << std::endl;
+    const double d_projection_parameter = 1.0;
+    Triangles projected_triangles = ZBuffer::doProjectTriangle(figures, d_projection_parameter);
 
+    if (projected_triangles.empty() && type == "LightedZBuffering") { // Only return early if actual content was expected
+        for (Light* l : lights_list) delete l;
+        return img::EasyImage(size, size, img::Color(static_cast<uint8_t>(backgroundColor.red*255), static_cast<uint8_t>(backgroundColor.green*255), static_cast<uint8_t>(backgroundColor.blue*255)));
+    } else if (projected_triangles.empty()) { // For ZBuffering (no lights parsed), still return empty image
+         for (Light* l : lights_list) delete l; // cleanup default light
+         return img::EasyImage(size, size, img::Color(static_cast<uint8_t>(backgroundColor.red*255), static_cast<uint8_t>(backgroundColor.green*255), static_cast<uint8_t>(backgroundColor.blue*255)));
+    }
+
+
+    std::map<std::string, double> screen_params = calculate(projected_triangles, size);
+    int imageX = lround(screen_params["imageX"]);
+    int imageY = lround(screen_params["imageY"]);
+    double d_scaling = screen_params["d"];
+    double dx_translation = screen_params["dx"];
+    double dy_translation = screen_params["dy"];
+
+    img::EasyImage image(imageX, imageY, img::Color(static_cast<uint8_t>(backgroundColor.red * 255), static_cast<uint8_t>(backgroundColor.green * 255), static_cast<uint8_t>(backgroundColor.blue * 255)));
+    ZBuffer zbuffer(imageX, imageY);
+
+    for (auto &triangle_to_draw : projected_triangles) {
+        triangle_to_draw.p1.x = triangle_to_draw.p1.x * d_scaling + dx_translation;
+        triangle_to_draw.p1.y = triangle_to_draw.p1.y * d_scaling + dy_translation;
+        triangle_to_draw.p2.x = triangle_to_draw.p2.x * d_scaling + dx_translation;
+        triangle_to_draw.p2.y = triangle_to_draw.p2.y * d_scaling + dy_translation;
+        triangle_to_draw.p3.x = triangle_to_draw.p3.x * d_scaling + dx_translation;
+        triangle_to_draw.p3.y = triangle_to_draw.p3.y * d_scaling + dy_translation;
+
+        zbuffer.draw_zbuf_triangle(image, triangle_to_draw, lights_list, eyePositionInEyeSpace, d_projection_parameter, d_scaling, dx_translation, dy_translation);
+    }
+
+    for (Light* l : lights_list) delete l;
     return image;
 }

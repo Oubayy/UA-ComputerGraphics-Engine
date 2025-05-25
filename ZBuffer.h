@@ -2,6 +2,7 @@
 #define ENGINE_ZBUFFER_H
 
 #include "easy_image.h"
+#include "Light.h"
 #include "Figure.h"
 #include "vector3d.h"
 #include "Line2D.h"
@@ -33,7 +34,17 @@ public:
     void draw_zbuf_line(img::EasyImage &image, Line2D line);
 
     static Triangles doProjectTriangle(const Figures3D &figures, const double &d);
-    void draw_zbuf_triangle(img::EasyImage &image, const Triangle& triangle, const double &d);
+
+    void draw_zbuf_triangle(
+    img::EasyImage &image,
+    const Triangle& triangle, // Contains screen coords, eye_z, eye_3D_points, material
+    const Lights3D& lights,
+    const Vector3D& eyePosition_eyeSpace, // This will be (0,0,0)
+    double d_projection_param, // The 'd' from perspective projection formula x' = d*x/-z
+    double image_scale_factor, // The 'd' from calculate() for screen scaling
+    double image_dx_translation, // The 'dx' from calculate()
+    double image_dy_translation  // The 'dy' from calculate()
+);
 };
 
 
