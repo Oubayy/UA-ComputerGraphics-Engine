@@ -155,7 +155,7 @@ Figure generateFractalDodecahedron(int nrIterations, double actualScaleFactor) {
 }
 
 Figure generateFractalBuckyBall(int nrIterations, double actualScaleFactor) {
-    Figure baseUnitShape = Figure::createBuckyBall(); // Assuming createBuckyBall() is implemented
+    Figure baseUnitShape = Figure::createBuckyBall();
     Figures3D fractalComponents;
     if (nrIterations == 0) {
         fractalComponents.push_back(baseUnitShape);

@@ -21,17 +21,10 @@
 using namespace std;
 
 Figure Figure::createBuckyBall() {
-    // Placeholder: Generate an Icosahedron for now, as the Buckyball
-    // generation from Icosahedron (truncation) is complex and not provided.
-    // A real implementation would truncate the icosahedron vertices.
-    Figure bucky = createIcosahedron(); // Use Icosahedron as a stand-in
-    bucky.color = Color(0.9, 0.9, 0.9); // Default Buckyball color (e.g., grey)
-
+    // Placeholder:
+    Figure bucky = createIcosahedron();
+    bucky.color = Color(0.9, 0.9, 0.9);
     // TODO: Implement actual Buckyball generation (Truncated Icosahedron)
-    // This involves creating 12 pentagons and 20 hexagons.
-    // It requires calculating new vertices by cutting off the original icosahedron vertices.
-    // See course notes page 55 or online resources for algorithms.
-
     return bucky;
 }
 
