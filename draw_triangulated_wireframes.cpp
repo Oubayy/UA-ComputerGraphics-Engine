@@ -1,20 +1,15 @@
 #include "draw_triangulated_wireframes.h"
 #include "easy_image.h"
-#include "ZBuffer.h"         // Includes Light.h, Figure.h, vector3d.h, Line2D.h
+#include "ZBuffer.h"
 #include "Projection.h"
 #include "ini_configuration.h"
-#include "lineDrawer.h"      // For generateFigures, calculate, and generateLights (declaration)
+#include "lineDrawer.h"
 #include "Transformations.h"
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
 #include <map>
-#include <vector> // For std::vector<Face>
-
-// Assuming generateLights is in lineDrawer.cpp and its declaration is visible
-
-// If generateLights is defined in lineDrawer.cpp, add its declaration to lineDrawer.h:
-// Lights3D generateLights(const ini::Configuration &configuration);
+#include <vector>
 
 img::EasyImage draw_triangulated_wireframes(const ini::Configuration &configuration) {
     int size = configuration["General"]["size"].as_int_or_die();
@@ -43,30 +38,29 @@ img::EasyImage draw_triangulated_wireframes(const ini::Configuration &configurat
     }
 
     Matrix eyeTransform = eyePointTrans(eyePoint);
-    applyTransformation(figures, eyeTransform);
+    applyTransformation(figures, eyeTransform); // Figures are now in eye space
 
     Lights3D lights_list;
     std::string type = configuration["General"]["type"].as_string_or_die();
 
     if (type == "LightedZBuffering") {
-        lights_list = generateLights(configuration);
+        lights_list = generateLights(configuration, eyeTransform); // Pass eyeTransform
     } else {
         DirectionalLight* defaultLight = new DirectionalLight();
         defaultLight->ambientLight = Color(1.0, 1.0, 1.0);
+        // Default light's direction is (0,0,-1) in world.
+        defaultLight->direction = Vector3D::vector(0,0,-1.0) * eyeTransform;
+        defaultLight->direction.normalise();
         lights_list.push_back(defaultLight);
     }
 
     const double d_projection_parameter = 1.0;
     Triangles projected_triangles = ZBuffer::doProjectTriangle(figures, d_projection_parameter);
 
-    if (projected_triangles.empty() && type == "LightedZBuffering") { // Only return early if actual content was expected
+    if (projected_triangles.empty()) {
         for (Light* l : lights_list) delete l;
         return img::EasyImage(size, size, img::Color(static_cast<uint8_t>(backgroundColor.red*255), static_cast<uint8_t>(backgroundColor.green*255), static_cast<uint8_t>(backgroundColor.blue*255)));
-    } else if (projected_triangles.empty()) { // For ZBuffering (no lights parsed), still return empty image
-         for (Light* l : lights_list) delete l; // cleanup default light
-         return img::EasyImage(size, size, img::Color(static_cast<uint8_t>(backgroundColor.red*255), static_cast<uint8_t>(backgroundColor.green*255), static_cast<uint8_t>(backgroundColor.blue*255)));
     }
-
 
     std::map<std::string, double> screen_params = calculate(projected_triangles, size);
     int imageX = lround(screen_params["imageX"]);

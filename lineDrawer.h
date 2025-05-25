@@ -56,6 +56,6 @@ Figures3D generateFigures(const ini::Configuration &configuration);
  * @param configuration De configuratie.
  * @return Een lijst van pointers naar Light objecten.
  */
-Lights3D generateLights(const ini::Configuration &configuration); // <<<<<<< ADD THIS DECLARATION
+Lights3D generateLights(const ini::Configuration &configuration, const Matrix& viewMatrix);
 
 #endif // LINEDRAWER_H

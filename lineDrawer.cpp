@@ -167,8 +167,8 @@ Lines2D drawLSystem(const LParser::LSystem2D &l_system, const Color &lineColor) 
     return lines;
 }
 
-Lights3D generateLights(const ini::Configuration &configuration) {
-    Lights3D lights_list; // Renamed to avoid conflict
+Lights3D generateLights(const ini::Configuration &configuration, const Matrix& viewMatrix) {
+    Lights3D lights_list;
     int nrLights = 0;
     if (configuration["General"]["nrLights"].exists()) {
         nrLights = configuration["General"]["nrLights"].as_int_or_die();
@@ -177,8 +177,12 @@ Lights3D generateLights(const ini::Configuration &configuration) {
     for (int i = 0; i < nrLights; ++i) {
         std::string light_key = "Light" + std::to_string(i);
         const auto& lightConfig = configuration[light_key];
-        if (!lightConfig["ambientLight"].exists() && !lightConfig["diffuseLight"].exists() && !lightConfig["specularLight"].exists()) { // Basic check for section
-             std::cerr << "Warning: Light section '" << light_key << "' appears empty or missing required fields." << std::endl;
+
+        // Basic check if section has any of the core light color keys
+        if (!lightConfig["ambientLight"].exists() &&
+            !lightConfig["diffuseLight"].exists() &&
+            !lightConfig["specularLight"].exists()) {
+            std::cerr << "Warning: Light section '" << light_key << "' missing core color fields (ambient/diffuse/specular)." << std::endl;
             continue;
         }
 
@@ -206,30 +210,40 @@ Lights3D generateLights(const ini::Configuration &configuration) {
             dl->ambientLight = ambientL; dl->diffuseLight = diffuseL; dl->specularLight = specularL;
             if (lightConfig["direction"].exists()) {
                 ini::DoubleTuple dirTuple = lightConfig["direction"].as_double_tuple_or_die();
-                dl->direction = Vector3D::vector(dirTuple[0], dirTuple[1], dirTuple[2]);
+                // dl->direction is Ld (from light to origin) in world space. Transform to eye space.
+                // A direction vector is transformed by the main 3x3 part of the matrix.
+                // Assuming viewMatrix has translation in 4th row/col, which is fine for points.
+                // For direction vectors (w=0), translation part of matrix mult doesn't apply.
+                dl->direction = Vector3D::vector(dirTuple[0], dirTuple[1], dirTuple[2]) * viewMatrix;
             } else {
-                 dl->direction = Vector3D::vector(0,0,-1); // Default
+                 dl->direction = Vector3D::vector(0,0,-1.0) * viewMatrix; // Default world direction transformed
             }
+            dl->direction.normalise(); // making sure its normalized after transformation
             lights_list.push_back(dl);
-        } else {
+        } else { // Point Light
             PointLight* pl = new PointLight();
             pl->ambientLight = ambientL; pl->diffuseLight = diffuseL; pl->specularLight = specularL;
             if (lightConfig["location"].exists()) {
                 ini::DoubleTuple locTuple = lightConfig["location"].as_double_tuple_or_die();
-                pl->location = Vector3D::point(locTuple[0], locTuple[1], locTuple[2]);
+                // Transform point light location from world to eye space
+                pl->location = Vector3D::point(locTuple[0], locTuple[1], locTuple[2]) * viewMatrix;
             } else {
-                 pl->location = Vector3D::point(0,0,0); // Default
+                 pl->location = Vector3D::point(0,0,0) * viewMatrix; // Default world location transformed
             }
+
             if (lightConfig["spotAngle"].exists()) {
                 pl->spotAngleDegrees = lightConfig["spotAngle"].as_double_or_die();
-                double loc_len = pl->location.length();
-                if (loc_len * loc_len > 1e-12) { // Check against small epsilon for length check
+                // Spot direction also needs to be in eye space.
+                // Default: from light location (now in eye space) towards eye-space origin (0,0,0).
+                if (pl->location.length() > 1e-9) {
                     pl->spotDirection = Vector3D::normalise(Vector3D::point(0,0,0) - pl->location);
                 } else {
+                    // If light is at eye-space origin, default spot direction (e.g., along -Z eye)
                     pl->spotDirection = Vector3D::vector(0,0,-1.0);
+                    // This default spot direction is already in eye-space, no further transform needed
                 }
             } else {
-                pl->spotAngleDegrees = 181.0;
+                pl->spotAngleDegrees = 181.0; // Mark as omni, spotDirection won't be used
             }
             lights_list.push_back(pl);
         }

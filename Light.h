@@ -3,78 +3,72 @@
 #define ENGINE_LIGHT_H
 
 #include "vector3d.h"
-#include "Line2D.h" // For Color
+#include "Line2D.h"
 #include <list>
-#include <cmath> // For M_PI, cos, std::pow, std::cos
+#include <cmath>
 
-#ifndef M_PI // Define M_PI if not already defined by cmath
+#ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 class Light {
 public:
-    Color ambientLight;    // Ia
-    Color diffuseLight;    // Id
-    Color specularLight;   // Is
+    Color ambientLight;
+    Color diffuseLight;
+    Color specularLight;
 
     Light() : ambientLight(0,0,0), diffuseLight(0,0,0), specularLight(0,0,0) {}
     virtual ~Light() = default;
 
-    virtual Vector3D getLightVector(const Vector3D& pointOnSurface) const = 0;
+    virtual Vector3D getLightVector(const Vector3D& pointOnSurface_eye) const = 0;
 
-    virtual double getAttenuation(const Vector3D& pointOnSurface, const Vector3D& lightVectorToPointFromSurface) const {
+    virtual double getAttenuation(const Vector3D& pointOnSurface_eye, const Vector3D& lightVectorToPointFromSurface_eye) const {
         return 1.0;
     }
 };
 
 class DirectionalLight : public Light {
 public:
-    Vector3D direction; // Ld (points FROM light TO origin)
+    // This 'direction' will store Ld (vector from light to origin) ALREADY TRANSFORMED TO EYE SPACE.
+    Vector3D direction;
 
-    DirectionalLight() : direction(Vector3D::vector(0,0,-1.0)) {}
+    DirectionalLight() : direction(Vector3D::vector(0,0,-1.0)) {} // Default Ld (world), will be transformed
 
-    Vector3D getLightVector(const Vector3D& pointOnSurface) const override {
-        // L points TOWARDS the light source
-        return Vector3D::normalise(-direction);
+    Vector3D getLightVector(const Vector3D& pointOnSurface_eye) const override {
+        // For directional light, L is constant and points TOWARDS the light source.
+        // this->direction is Ld in eye space. L_eye = -Ld_eye (normalized).
+        return Vector3D::normalise(-this->direction);
     }
 };
 
 class PointLight : public Light {
 public:
+    // This 'location' will be ALREADY TRANSFORMED TO EYE SPACE.
     Vector3D location;
     double spotAngleDegrees;
-    Vector3D spotDirection;  // Normalized direction the spotlight is pointing.
+    // This 'spotDirection' will be ALREADY TRANSFORMED/CALCULATED IN EYE SPACE.
+    Vector3D spotDirection;
 
     PointLight() :
         location(Vector3D::point(0,0,0)),
-        spotAngleDegrees(181.0), // Default: omni
+        spotAngleDegrees(181.0),
         spotDirection(Vector3D::vector(0,0,-1.0))
     {}
 
-    Vector3D getLightVector(const Vector3D& pointOnSurface) const override {
-        return Vector3D::normalise(location - pointOnSurface);
+    Vector3D getLightVector(const Vector3D& pointOnSurface_eye) const override {
+        // Both location and pointOnSurface_eye are in eye space.
+        return Vector3D::normalise(this->location - pointOnSurface_eye);
     }
 
-    double getAttenuation(const Vector3D& pointOnSurface, const Vector3D& lightVectorToPointFromSurface) const override {
-        if (spotAngleDegrees <= 0.0 || spotAngleDegrees >= 90.0) { // Per spec PDF: angle between 0 and 90 inclusive. ">90" means omni.
-            return 1.0; // Omni-directional
+    double getAttenuation(const Vector3D& pointOnSurface_eye, const Vector3D& lightVectorToPointFromSurface_eye) const override {
+        if (spotAngleDegrees <= 0.0 || spotAngleDegrees >= 90.0) {
+            return 1.0;
         }
-
-        // lightVectorToPointFromSurface is L (from surface to light).
-        // We need vector from light TO surface for spotlight calculation.
-        Vector3D vectorFromLightToSurface = -lightVectorToPointFromSurface; // This is already normalized if L was.
-
-        // spotDirection should be normalized when set.
-        double cosAngle = spotDirection.dot(vectorFromLightToSurface);
+        Vector3D vectorFromLightToSurface_eye = -lightVectorToPointFromSurface_eye;
+        double cosAngle = this->spotDirection.dot(vectorFromLightToSurface_eye); // Both in eye space, spotDirection normalized
         double cosCutoff = std::cos(spotAngleDegrees * M_PI / 180.0);
-
-        if (cosAngle >= cosCutoff) {
-            // Optional: smooth falloff (e.g., cosine weighted or phong-like)
-            // For now, hard cutoff as per basic requirement
-            return 1.0; // Point is inside the cone
-        } else {
-            return 0.0; // Point is outside the cone
-        }
+        if (cosAngle >= cosCutoff) return 1.0;
+        else return 0.0;
     }
 };
 

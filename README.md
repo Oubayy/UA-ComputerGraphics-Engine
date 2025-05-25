@@ -29,10 +29,10 @@ X: Niet werkend of niet geïmplementeerd
 |   | BuckyBall                 |        |
 |   | Mengerspons               | V      |
 |   | View Frustum              |        |
-| 7 | Ambient licht             |        |
-|   | Diffuus licht (oneindig)  |        |
-|   | Diffuus licht (puntbron)  |        |
-|   | Speculair licht           |        |
+| 7 | Ambient licht             | V      |
+|   | Diffuus licht (oneindig)  | V      |
+|   | Diffuus licht (puntbron)  | V      |
+|   | Speculair licht           | V      |
 | 8 | Schaduw                   |        |
 |   | Texture mapping           |        |
 | 9 | Bollen en cylinders       |        |
@@ -41,10 +41,7 @@ X: Niet werkend of niet geïmplementeerd
 
 Geïmplementeerde vorm van texture mapping: ...
 
-## Gekende problemen 
-
-probleem met dimensies, soms 1 pixel off, kon dit niet fixen. 
-Bij sommige afbeeldingen is de similarity ook niet hoog genoeg.
+## Gekende problemen
 
 ...
 ## Niet-gequoteerde functionaliteit
